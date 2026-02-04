@@ -1,0 +1,40 @@
+# Build directories
+build/
+*/build/
+**/build/
+
+# Binary output
+bin/
+*/bin/
+**/bin/
+
+# IDE/editor caches
+.cache/
+*/.cache/
+**/.cache/
+.vscode/
+.idea/
+
+# Compiled objects
+*.o
+*.a
+*.so
+*.dylib
+*.exe
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# ESP-IDF
+sdkconfig
+sdkconfig.old
+dependencies.lock
+
+# macOS
+.DS_Store
+
+# Test binaries
+src/*.exe
