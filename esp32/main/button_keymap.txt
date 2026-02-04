@@ -1,0 +1,79 @@
+# MCP23017 Button Keymap Configuration
+# Format: ROW,COL=KEY_LABEL
+# Similar to Windows button_keycodes.txt but simplified
+# ROW: 1-9, COL: 1-6
+
+# This file is for documentation only. 
+# To change keymaps, edit mcp23017_keymap.c
+
+# Row 1 - Special keys and arrow diamond
+1,1=SHIFT
+1,2=ALPHA
+1,3=UP
+1,4=F1
+1,5=MENU
+1,6=ON
+
+# Row 2 - Arrow diamond middle and control keys
+2,1=F2
+2,2=LEFT
+2,3=RIGHT
+2,4=DOWN
+2,5=ENTER
+2,6=DEL
+
+# Row 3 - Math functions (trigonometry)
+3,1=sin
+3,2=cos
+3,3=tan
+3,4=asin
+3,5=log
+3,6=e^x
+
+# Row 4 - Numbers 7-9 and operations
+4,1=7
+4,2=8
+4,3=9
+4,4=/
+4,5=*
+4,6=AC
+
+# Row 5 - Numbers 4-6 and operations
+5,1=4
+5,2=5
+5,3=6
+5,4=-
+5,5=+
+5,6=(
+
+# Row 6 - Numbers 1-3 and operations
+6,1=1
+6,2=2
+6,3=3
+6,4=^
+6,5=sqrt
+6,6=)
+
+# Row 7 - Number 0, decimal, and operations
+7,1=0
+7,2=.
+7,3=(-)
+7,4=EXP
+7,5==
+7,6=pi
+
+# Row 8 - Variables
+8,1=x
+8,2=y
+8,3=z
+8,4=i
+8,5=j
+8,6=k
+
+# Row 9 - Additional functions
+9,1=ESC
+9,2=TAB
+9,3=HELP
+9,4=VAR
+9,5=HOME
+9,6=END

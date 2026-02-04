@@ -1,0 +1,6 @@
+version: "1.0.0"
+dependencies:
+  lvgl/lvgl:
+    version: "^9"        # LVGL v9.x
+    public: true
+  espressif/esp_lvgl_port: "^2.6.2"

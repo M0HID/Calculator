@@ -1,0 +1,53 @@
+BUILD INSTRUCTIONS
+==================
+
+WINDOWS BUILD
+-------------
+Script:
+  build-windows.bat
+
+Manual:
+  cd windows
+  C:\msys64\msys2_shell.cmd -mingw64 -defterm -here -no-start -c "cmake -B build -G 'MinGW Makefiles' -DCONFIG_LV_USE_THORVG_INTERNAL=OFF -DCONFIG_LV_BUILD_DEMOS=OFF -DCONFIG_LV_BUILD_EXAMPLES=OFF ."
+  C:\msys64\msys2_shell.cmd -mingw64 -defterm -here -no-start -c "cmake --build build -j8"
+  bin\main.exe
+
+Requirements:
+  - MSYS2 installed at C:\msys64
+  - SDL2 package: pacman -S mingw-w64-x86_64-SDL2
+
+Output:
+  windows/bin/main.exe
+
+
+ESP32 BUILD
+-----------
+Script:
+  ./build-esp32.sh
+
+Manual:
+  source ~/esp/esp-idf/export.sh
+  cd esp32
+  idf.py build
+  idf.py flash monitor
+
+Requirements:
+  - ESP-IDF installed and configured
+  - IDF_PATH environment variable set
+
+Output:
+  esp32/build/*.bin
+
+
+SHARED CODE
+-----------
+Both platforms use:
+  src/main_menu.c - Main menu UI
+  src/math.c - Calculator logic
+  src/input_hal.h - Platform abstraction
+
+Platform-specific:
+  windows/src/input_hal.c - Windows implementation
+  windows/src/hal/hal.c - SDL2 HAL
+  esp32/main/input_hal.c - ESP32 FreeRTOS implementation
+  esp32/main/driver.c - ILI9341 display driver

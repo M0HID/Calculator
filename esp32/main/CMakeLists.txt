@@ -1,0 +1,16 @@
+idf_component_register(
+    SRCS 
+        "button_driver.c" 
+        "button_config.c" 
+        "driver.c" 
+        "main.c" 
+        "input_hal.c"
+        "mcp23017_button_driver.c"
+        "../../src/button_keymap.c"
+        "../../src/math.c"
+        "../../src/expr_eval.c"
+        "../../src/main_menu.c"
+    INCLUDE_DIRS 
+        "." 
+        "../../src"
+)
