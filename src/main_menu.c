@@ -2,6 +2,7 @@
 #include "input_hal.h"
 #include "lvgl.h"
 #include "math.h"
+#include "graph.h"
 #include <string.h>
 
 // Grid dimensions
@@ -87,9 +88,18 @@ static void moveRight(void) {
   }
 }
 
-static void openApp(char *app) {
-  if (strcmp(app, "math") == 0) {
-    math_app_start();
+static void openApp(int row, int col) {
+  int index = row * MENU_COLS + col;
+  switch (index) {
+    case 0: // Math
+      math_app_start();
+      break;
+    case 1: // Graph
+      graph_app_start();
+      break;
+    // TODO: Add other apps
+    default:
+      break;
   }
 }
 
@@ -110,8 +120,13 @@ static void key_event_handler(lv_event_t *e) {
   case LV_KEY_RIGHT:
     moveRight();
     break;
-  case LV_KEY_ENTER:
-    openApp("math");
+  case LV_KEY_ENTER: {
+    int row, col;
+    if (get_current_position(&row, &col)) {
+      openApp(row, col);
+    }
+    break;
+  }
   default:
     // Let other keys be handled normally
     break;

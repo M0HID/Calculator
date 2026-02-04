@@ -15,6 +15,9 @@ double pow(double x, double y);
 #define NAN (0.0/0.0)
 #endif
 
+// Current value of x for expression evaluation
+static double current_x_value = 0.0;
+
 typedef struct {
     const char *str;
     int pos;
@@ -60,6 +63,12 @@ static double parse_factor(Parser *p) {
             p->pos++;
         }
         return result;
+    }
+    
+    // Check for variable x
+    if (p->str[p->pos] == 'x' || p->str[p->pos] == 'X') {
+        p->pos++;
+        return current_x_value;
     }
     
     // Check for functions
@@ -165,6 +174,16 @@ double eval_expression(const char *expr) {
         return NAN;
     }
     
+    Parser p = { .str = expr, .pos = 0 };
+    return parse_expression(&p);
+}
+
+double eval_expression_x(const char *expr, double x_val) {
+    if (!expr || strlen(expr) == 0) {
+        return NAN;
+    }
+    
+    current_x_value = x_val;
     Parser p = { .str = expr, .pos = 0 };
     return parse_expression(&p);
 }

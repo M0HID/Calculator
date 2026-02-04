@@ -8,6 +8,7 @@ idf_component_register(
         "mcp23017_button_driver.c"
         "../../src/button_keymap.c"
         "../../src/math.c"
+        "../../src/graph.c"
         "../../src/expr_eval.c"
         "../../src/main_menu.c"
     INCLUDE_DIRS 
