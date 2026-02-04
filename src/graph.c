@@ -69,8 +69,9 @@ static int trace_func_idx = 0;
 static lv_obj_t *func_list_container = NULL;
 static lv_obj_t *func_rows[MAX_FUNCTIONS];
 static lv_obj_t *func_checkboxes[MAX_FUNCTIONS];
-static lv_obj_t *func_labels[MAX_FUNCTIONS];
-static lv_obj_t *func_textareas[MAX_FUNCTIONS];
+static lv_obj_t *func_prefixes[MAX_FUNCTIONS];  // "y1 = " prefix labels
+static lv_obj_t *func_labels[MAX_FUNCTIONS];     // equation display (when not editing)
+static lv_obj_t *func_textareas[MAX_FUNCTIONS];  // equation input (when editing)
 static lv_obj_t *hint_label = NULL;
 
 // UI elements - Graph View screen
@@ -110,7 +111,7 @@ static void draw_axes(void) {
     
     lv_draw_line_dsc_t line_dsc;
     lv_draw_line_dsc_init(&line_dsc);
-    line_dsc.color = lv_color_hex(0x555555);
+    line_dsc.color = lv_color_hex(0x333333);
     line_dsc.width = 1;
     line_dsc.opa = LV_OPA_COVER;
     
@@ -131,7 +132,7 @@ static void draw_axes(void) {
     }
     
     // Grid
-    line_dsc.color = lv_color_hex(0x333333);
+    line_dsc.color = lv_color_hex(0xDDDDDD);
     double range = x_max - x_min;
     double tick = 1.0;
     if (range > 100) tick = 20.0;
@@ -218,9 +219,9 @@ static void draw_trace_cursor(void) {
     // Crosshair
     lv_draw_line_dsc_t line_dsc;
     lv_draw_line_dsc_init(&line_dsc);
-    line_dsc.color = lv_color_hex(0xFFFF00);
+    line_dsc.color = lv_color_hex(0x999999);
     line_dsc.width = 1;
-    line_dsc.opa = LV_OPA_70;
+    line_dsc.opa = LV_OPA_COVER;
     
     line_dsc.p1.x = cx; line_dsc.p1.y = 0;
     line_dsc.p2.x = cx; line_dsc.p2.y = CANVAS_H;
@@ -242,7 +243,7 @@ static void draw_trace_cursor(void) {
 }
 
 static void draw_graph(void) {
-    lv_canvas_fill_bg(canvas, lv_color_hex(0x000000), LV_OPA_COVER);
+    lv_canvas_fill_bg(canvas, lv_color_hex(0xFFFFFF), LV_OPA_COVER);
     draw_axes();
     for (int i = 0; i < MAX_FUNCTIONS; i++) {
         draw_function(i);
@@ -263,7 +264,7 @@ static void update_function_list_ui(void) {
         
         // Update label color for selected item
         if (i == selected_function && editing_function < 0) {
-            lv_obj_set_style_bg_color(func_rows[i], lv_color_hex(0x333355), 0);
+            lv_obj_set_style_bg_color(func_rows[i], lv_color_hex(0xE8E8F0), 0);
             lv_obj_set_style_bg_opa(func_rows[i], LV_OPA_COVER, 0);
         } else {
             lv_obj_set_style_bg_opa(func_rows[i], LV_OPA_TRANSP, 0);
@@ -274,26 +275,22 @@ static void update_function_list_ui(void) {
             lv_obj_add_flag(func_labels[i], LV_OBJ_FLAG_HIDDEN);
             lv_obj_remove_flag(func_textareas[i], LV_OBJ_FLAG_HIDDEN);
             lv_textarea_set_text(func_textareas[i], functions[i].equation);
-            lv_group_focus_obj(func_textareas[i]);
+            lv_textarea_set_cursor_pos(func_textareas[i], LV_TEXTAREA_CURSOR_LAST);
         } else {
             lv_obj_remove_flag(func_labels[i], LV_OBJ_FLAG_HIDDEN);
             lv_obj_add_flag(func_textareas[i], LV_OBJ_FLAG_HIDDEN);
             
-            char label_text[80];
-            snprintf(label_text, sizeof(label_text), "y%d = %s", i+1, 
-                     strlen(functions[i].equation) > 0 ? functions[i].equation : "(empty)");
-            lv_label_set_text(func_labels[i], label_text);
-            
-            // Color code the label
-            lv_obj_set_style_text_color(func_labels[i], lv_color_hex(func_colors[i]), 0);
+            // Just show the equation (prefix is separate)
+            const char *eq = functions[i].equation;
+            lv_label_set_text(func_labels[i], strlen(eq) > 0 ? eq : "(empty)");
         }
     }
     
     // Update hint
     if (editing_function >= 0) {
-        lv_label_set_text(hint_label, "[Enter] Save  [Esc] Cancel");
+        lv_label_set_text(hint_label, "[=] Save  [AC] Cancel");
     } else {
-        lv_label_set_text(hint_label, "[Enter] Edit  [Space] Toggle  [G] Graph");
+        lv_label_set_text(hint_label, "[=] Edit  [AC] Toggle  [CALC] Graph  [MENU] Back");
     }
 }
 
@@ -309,28 +306,32 @@ static void update_graph_info(void) {
         lv_label_set_text(coords_label, coords);
         lv_obj_set_style_text_color(coords_label, lv_color_hex(func_colors[trace_func_idx]), 0);
     } else {
-        lv_label_set_text(coords_label, "[T]race [+/-]Zoom [0]Reset");
-        lv_obj_set_style_text_color(coords_label, lv_color_hex(0x888888), 0);
+        lv_label_set_text(coords_label, "[VAR]Trace [+/-]Zoom [AC]Reset [MENU]Back");
+        lv_obj_set_style_text_color(coords_label, lv_color_hex(0x666666), 0);
     }
 }
 
 // ============== Event handlers ==============
 
+static lv_obj_t *key_receiver = NULL;  // Store reference for refocusing
+
 static void textarea_event_cb(lv_event_t *e) {
     lv_event_code_t code = lv_event_get_code(e);
     int idx = (int)(intptr_t)lv_event_get_user_data(e);
     
-    if (code == LV_EVENT_READY || code == LV_EVENT_DEFOCUSED) {
-        // Save and exit edit mode
+    if (code == LV_EVENT_READY) {
+        // Enter pressed - save and exit edit mode
         if (editing_function == idx) {
             const char *text = lv_textarea_get_text(func_textareas[idx]);
             strncpy(functions[idx].equation, text, sizeof(functions[idx].equation) - 1);
             editing_function = -1;
+            if (key_receiver) lv_group_focus_obj(key_receiver);
             update_function_list_ui();
         }
     } else if (code == LV_EVENT_CANCEL) {
-        // Cancel edit
+        // Escape pressed - cancel edit
         editing_function = -1;
+        if (key_receiver) lv_group_focus_obj(key_receiver);
         update_function_list_ui();
     }
 }
@@ -340,8 +341,9 @@ static void funclist_key_cb(lv_event_t *e) {
     
     // If editing, let textarea handle most keys
     if (editing_function >= 0) {
-        if (key == LV_KEY_ESC) {
+        if (key == LV_KEY_DEL || key == 'M') {  // AC or MENU to cancel
             editing_function = -1;
+            if (key_receiver) lv_group_focus_obj(key_receiver);
             update_function_list_ui();
         }
         return;
@@ -358,22 +360,23 @@ static void funclist_key_cb(lv_event_t *e) {
         update_function_list_ui();
         break;
         
-    case LV_KEY_ENTER:
-        // Start editing selected function
+    case LV_KEY_ENTER:  // = key - edit function
         editing_function = selected_function;
         update_function_list_ui();
+        lv_group_focus_obj(func_textareas[selected_function]);
         break;
         
-    case ' ':  // Space to toggle
+    case LV_KEY_DEL:  // AC - toggle function on/off
         functions[selected_function].enabled = !functions[selected_function].enabled;
         update_function_list_ui();
         break;
         
-    case 'g':
-    case 'G':
-    case LV_KEY_RIGHT:
-        // Go to graph view
+    case 'C':  // CALC - go to graph view
         show_graph_view();
+        break;
+        
+    case 'M':  // MENU - back to main menu
+        main_menu_create();
         break;
     }
 }
@@ -432,26 +435,22 @@ static void graph_key_cb(lv_event_t *e) {
         }
         break;
         
-    case '+':
-    case '=':
+    case '+':  // Zoom in
         { double cx = (x_min+x_max)/2, cy = (y_min+y_max)/2;
           double rx = (x_max-x_min)/3, ry = (y_max-y_min)/3;
           x_min = cx-rx; x_max = cx+rx; y_min = cy-ry; y_max = cy+ry; }
         break;
         
-    case '-':
-    case '_':
+    case '-':  // Zoom out
         { double cx = (x_min+x_max)/2, cy = (y_min+y_max)/2;
           double rx = (x_max-x_min)*0.75, ry = (y_max-y_min)*0.75;
           x_min = cx-rx; x_max = cx+rx; y_min = cy-ry; y_max = cy+ry; }
         break;
         
-    case 't':
-    case 'T':
+    case 'V':  // VAR - toggle trace
         trace_enabled = !trace_enabled;
         if (trace_enabled) {
             trace_x = (x_min + x_max) / 2;
-            // Find first enabled function
             trace_func_idx = -1;
             for (int i = 0; i < MAX_FUNCTIONS; i++) {
                 if (functions[i].enabled && strlen(functions[i].equation) > 0) {
@@ -463,13 +462,12 @@ static void graph_key_cb(lv_event_t *e) {
         }
         break;
         
-    case '0':
+    case LV_KEY_DEL:  // AC - reset view
         x_min = -10; x_max = 10; y_min = -10; y_max = 10;
         trace_x = 0;
         break;
         
-    case LV_KEY_ESC:
-    case LV_KEY_BACKSPACE:
+    case 'M':  // MENU - back to function list
         show_function_list();
         return;
     }
@@ -486,65 +484,83 @@ static void show_function_list(void) {
     
     lv_obj_clean(lv_scr_act());
     lv_obj_t *scr = lv_scr_act();
+    lv_obj_set_style_bg_color(scr, lv_color_hex(0xFFFFFF), 0);
     
     // Title
     lv_obj_t *title = lv_label_create(scr);
     lv_label_set_text(title, "Functions");
-    lv_obj_set_pos(title, 10, 5);
-    lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_pos(title, 10, 4);
+    lv_obj_set_style_text_color(title, lv_color_hex(0x333333), 0);
     
     // Function list container
     func_list_container = lv_obj_create(scr);
-    lv_obj_set_size(func_list_container, SCREEN_W - 10, SCREEN_H - 55);
-    lv_obj_set_pos(func_list_container, 5, 25);
-    lv_obj_set_style_bg_color(func_list_container, lv_color_hex(0x111111), 0);
-    lv_obj_set_style_border_width(func_list_container, 0, 0);
-    lv_obj_set_style_pad_all(func_list_container, 5, 0);
+    lv_obj_set_size(func_list_container, SCREEN_W - 10, SCREEN_H - 50);
+    lv_obj_set_pos(func_list_container, 5, 22);
+    lv_obj_set_style_bg_color(func_list_container, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_border_width(func_list_container, 1, 0);
+    lv_obj_set_style_border_color(func_list_container, lv_color_hex(0xCCCCCC), 0);
+    lv_obj_set_style_radius(func_list_container, 4, 0);
+    lv_obj_set_style_pad_all(func_list_container, 8, 0);
     lv_obj_clear_flag(func_list_container, LV_OBJ_FLAG_SCROLLABLE);
     
     // Create rows for each function
+    int row_height = 28;
+    int row_spacing = 32;
     for (int i = 0; i < MAX_FUNCTIONS; i++) {
         func_rows[i] = lv_obj_create(func_list_container);
-        lv_obj_set_size(func_rows[i], SCREEN_W - 30, 38);
-        lv_obj_set_pos(func_rows[i], 0, i * 42);
+        lv_obj_set_size(func_rows[i], SCREEN_W - 36, row_height);
+        lv_obj_set_pos(func_rows[i], 0, i * row_spacing);
         lv_obj_set_style_bg_opa(func_rows[i], LV_OPA_TRANSP, 0);
         lv_obj_set_style_border_width(func_rows[i], 0, 0);
         lv_obj_set_style_pad_all(func_rows[i], 2, 0);
+        lv_obj_set_style_radius(func_rows[i], 4, 0);
         lv_obj_clear_flag(func_rows[i], LV_OBJ_FLAG_SCROLLABLE);
         
         // Checkbox
         func_checkboxes[i] = lv_checkbox_create(func_rows[i]);
         lv_checkbox_set_text(func_checkboxes[i], "");
-        lv_obj_set_pos(func_checkboxes[i], 0, 5);
+        lv_obj_set_pos(func_checkboxes[i], 0, 2);
         if (functions[i].enabled) {
             lv_obj_add_state(func_checkboxes[i], LV_STATE_CHECKED);
         }
         
-        // Label (shown when not editing)
-        func_labels[i] = lv_label_create(func_rows[i]);
-        lv_obj_set_pos(func_labels[i], 35, 8);
-        lv_obj_set_style_text_color(func_labels[i], lv_color_hex(func_colors[i]), 0);
+        // Prefix label "y1 = " (always visible)
+        func_prefixes[i] = lv_label_create(func_rows[i]);
+        char prefix[16];
+        snprintf(prefix, sizeof(prefix), "y%d =", i + 1);
+        lv_label_set_text(func_prefixes[i], prefix);
+        lv_obj_set_pos(func_prefixes[i], 30, 4);
+        lv_obj_set_style_text_color(func_prefixes[i], lv_color_hex(func_colors[i]), 0);
         
-        // Textarea (shown when editing)
+        // Equation label (shown when not editing)
+        func_labels[i] = lv_label_create(func_rows[i]);
+        lv_obj_set_pos(func_labels[i], 75, 4);
+        lv_obj_set_style_text_color(func_labels[i], lv_color_hex(0x333333), 0);
+        
+        // Textarea (shown when editing) - minimal styling
         func_textareas[i] = lv_textarea_create(func_rows[i]);
-        lv_obj_set_size(func_textareas[i], SCREEN_W - 80, 30);
-        lv_obj_set_pos(func_textareas[i], 35, 2);
+        lv_obj_set_size(func_textareas[i], SCREEN_W - 120, 24);
+        lv_obj_set_pos(func_textareas[i], 75, 1);
         lv_textarea_set_one_line(func_textareas[i], true);
-        lv_textarea_set_placeholder_text(func_textareas[i], "Enter f(x)...");
+        lv_textarea_set_placeholder_text(func_textareas[i], "");
+        lv_obj_set_style_border_width(func_textareas[i], 0, 0);
+        lv_obj_set_style_bg_opa(func_textareas[i], LV_OPA_TRANSP, 0);
+        lv_obj_set_style_pad_all(func_textareas[i], 0, 0);
         lv_obj_add_flag(func_textareas[i], LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_event_cb(func_textareas[i], textarea_event_cb, LV_EVENT_ALL, (void*)(intptr_t)i);
+        lv_obj_add_event_cb(func_textareas[i], textarea_event_cb, LV_EVENT_READY, (void*)(intptr_t)i);
+        lv_obj_add_event_cb(func_textareas[i], textarea_event_cb, LV_EVENT_CANCEL, (void*)(intptr_t)i);
     }
     
     // Hint label at bottom
     hint_label = lv_label_create(scr);
-    lv_obj_set_pos(hint_label, 10, SCREEN_H - 25);
-    lv_obj_set_style_text_color(hint_label, lv_color_hex(0x888888), 0);
+    lv_obj_set_pos(hint_label, 10, SCREEN_H - 22);
+    lv_obj_set_style_text_color(hint_label, lv_color_hex(0x666666), 0);
     
     // Setup navigation
     graph_group = lv_group_create();
     
-    // Add a dummy object for key handling
-    lv_obj_t *key_receiver = lv_obj_create(scr);
+    // Add a dummy object for key handling when not editing
+    key_receiver = lv_obj_create(scr);
     lv_obj_set_size(key_receiver, 0, 0);
     lv_obj_add_flag(key_receiver, LV_OBJ_FLAG_HIDDEN);
     lv_group_add_obj(graph_group, key_receiver);
@@ -568,14 +584,16 @@ static void show_graph_view(void) {
     
     lv_obj_clean(lv_scr_act());
     lv_obj_t *scr = lv_scr_act();
+    lv_obj_set_style_bg_color(scr, lv_color_hex(0xFFFFFF), 0);
     
     // Info bar at top
     info_label = lv_label_create(scr);
-    lv_obj_set_pos(info_label, 5, 3);
-    lv_obj_set_style_text_color(info_label, lv_color_hex(0x888888), 0);
+    lv_obj_set_pos(info_label, 5, 2);
+    lv_obj_set_style_text_color(info_label, lv_color_hex(0x666666), 0);
     
     coords_label = lv_label_create(scr);
-    lv_obj_set_pos(coords_label, 5, 18);
+    lv_obj_set_pos(coords_label, 5, 17);
+    lv_obj_set_style_text_color(coords_label, lv_color_hex(0x333333), 0);
     
     // Canvas
     canvas = lv_canvas_create(scr);
@@ -585,16 +603,16 @@ static void show_graph_view(void) {
     
     // Key handler
     graph_group = lv_group_create();
-    lv_obj_t *key_receiver = lv_obj_create(scr);
-    lv_obj_set_size(key_receiver, 0, 0);
-    lv_obj_add_flag(key_receiver, LV_OBJ_FLAG_HIDDEN);
-    lv_group_add_obj(graph_group, key_receiver);
-    lv_obj_add_event_cb(key_receiver, graph_key_cb, LV_EVENT_KEY, NULL);
+    lv_obj_t *graph_key_recv = lv_obj_create(scr);
+    lv_obj_set_size(graph_key_recv, 0, 0);
+    lv_obj_add_flag(graph_key_recv, LV_OBJ_FLAG_HIDDEN);
+    lv_group_add_obj(graph_group, graph_key_recv);
+    lv_obj_add_event_cb(graph_key_recv, graph_key_cb, LV_EVENT_KEY, NULL);
     
     lv_indev_t *indev = get_navigation_indev();
     if (indev) lv_indev_set_group(indev, graph_group);
     
-    lv_group_focus_obj(key_receiver);
+    lv_group_focus_obj(graph_key_recv);
     
     draw_graph();
     update_graph_info();

@@ -137,6 +137,7 @@ void main_menu_create(void) {
   lvgl_lock();
 
   lv_obj_t *scr = lv_screen_active();
+  lv_obj_clean(scr);  // Clear any existing content
 
   int cols = MENU_COLS;
   int rows = MENU_ROWS;
