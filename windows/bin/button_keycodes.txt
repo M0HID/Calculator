@@ -1,0 +1,79 @@
+# Button Keycode Configuration
+# Format: ROW,COL=KEYCODE
+# This maps keyboard keys to the 6x9 button array (6 columns, 9 rows)
+# Use SDL2 keycode names or numbers
+# Reference: https://wiki.libsdl.org/SDL2/SDL_Keycode
+# Calculator-focused layout with numbers, math functions, and navigation
+# Arrow keys form a diamond pattern (positioned between grid cells)
+
+# Row 0 - Special keys and UP arrow (UP will be positioned half-row up)
+0,0=LSHIFT
+0,1=LALT
+0,2=UP
+0,3=F3
+0,4=PAGEUP
+0,5=PAGEDOWN
+
+# Row 1 - LEFT, RIGHT, DOWN arrows in diamond pattern (positioned between grid cells)
+1,0=F4
+1,1=LEFT
+1,2=RIGHT
+1,3=DOWN
+1,4=RETURN
+1,5=BACKSPACE
+
+# Row 2 - Math functions (trigonometry)
+2,0=s
+2,1=c
+2,2=t
+2,3=a
+2,4=l
+2,5=e
+
+# Row 3 - Numbers 7-9 and operations
+3,0=7
+3,1=8
+3,2=9
+3,3=/
+3,4=*
+3,5=DELETE
+
+# Row 4 - Numbers 4-6 and operations
+4,0=4
+4,1=5
+4,2=6
+4,3=-
+4,4=+
+4,5=(
+
+# Row 5 - Numbers 1-3 and operations
+5,0=1
+5,1=2
+5,2=7
+5,3=8
+5,4=9
+5,5=)
+
+# Row 6 - Number 0, decimal, and operations
+6,0=0
+6,1=.
+6,2=4
+6,3=5
+6,4=6
+6,5=p
+
+# Row 7 - Special functions
+7,0=x
+7,1=y
+7,2=1
+7,3=2
+7,4=3
+7,5=d
+
+# Row 8 (Bottom row) - Additional functions
+8,0=ESCAPE
+8,1=TAB
+8,2=0
+8,3=.
+8,4=HOME
+8,5=END
