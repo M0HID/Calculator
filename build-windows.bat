@@ -19,7 +19,7 @@ if not exist "C:\msys64\msys2_shell.cmd" (
 
 echo Step 1: Configuring and building...
 echo.
-C:\msys64\msys2_shell.cmd -mingw64 -defterm -here -no-start -c "cd desktop && cmake -B build -G 'MinGW Makefiles' -DCONFIG_LV_USE_THORVG_INTERNAL=OFF -DCONFIG_LV_BUILD_DEMOS=OFF -DCONFIG_LV_BUILD_EXAMPLES=OFF . && cmake --build build -j8"
+C:\msys64\msys2_shell.cmd -mingw64 -defterm -here -no-start -c "cd desktop && cmake -B build -G 'MinGW Makefiles' -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCONFIG_LV_USE_THORVG_INTERNAL=OFF -DCONFIG_LV_BUILD_DEMOS=OFF -DCONFIG_LV_BUILD_EXAMPLES=OFF . && cmake --build build -j8"
 
 if errorlevel 1 (
     echo.

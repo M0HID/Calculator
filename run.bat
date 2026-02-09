@@ -1,5 +1,15 @@
 @echo off
-REM Simple build and run script for Windows
+REM Force MinGW + Ninja, ignore Cygwin completely
+
+setlocal EnableExtensions
+
+REM Absolute paths
+set MINGW=C:\msys64\mingw64\bin
+set CMAKE=C:\msys64\mingw64\bin\cmake.exe
+set NINJA=C:\msys64\mingw64\bin\ninja.exe
+
+REM Strip Cygwin by rebuilding PATH locally
+set "PATH=%MINGW%;%SystemRoot%\system32;%SystemRoot%;%SystemRoot%\System32\Wbem"
 
 echo ======================================
 echo LVGL Calculator - Build and Run
@@ -8,17 +18,30 @@ echo.
 
 cd /d "%~dp0"
 
-echo Building...
-C:\msys64\mingw64\bin\mingw32-make.exe -C windows/build -j8
+echo Building (MinGW + Ninja)...
+"%NINJA%" -C "desktop\build"
 
 if errorlevel 1 (
     echo.
-    echo ERROR: Build failed!
-    echo.
-    echo Trying full rebuild...
-    C:\msys64\msys2_shell.cmd -mingw64 -defterm -here -no-start -c "cd windows && rm -rf build && cmake -B build -G 'MinGW Makefiles' -DCONFIG_LV_USE_THORVG_INTERNAL=OFF -DCONFIG_LV_BUILD_DEMOS=OFF -DCONFIG_LV_BUILD_EXAMPLES=OFF . && cmake --build build -j8"
-    
+    echo Incremental build failed, reconfiguring...
+
+    rmdir /s /q "desktop\build"
+
+    "%CMAKE%" -S "desktop" -B "desktop\build" -G Ninja ^
+      -DCMAKE_C_COMPILER=C:/msys64/mingw64/bin/gcc.exe ^
+      -DCMAKE_CXX_COMPILER=C:/msys64/mingw64/bin/g++.exe ^
+      -DCONFIG_LV_USE_THORVG_INTERNAL=OFF ^
+      -DCONFIG_LV_BUILD_DEMOS=OFF ^
+      -DCONFIG_LV_BUILD_EXAMPLES=OFF
+
     if errorlevel 1 (
+        echo.
+        echo ERROR: Configure failed!
+        pause
+        exit /b 1
+    )
+
+    "%NINJA%" -C "desktop\build" || (
         echo.
         echo ERROR: Full rebuild failed!
         pause
@@ -34,11 +57,8 @@ echo.
 echo Starting application...
 echo.
 
-cd windows
-start "" "bin\main.exe"
+".\desktop\bin\main.exe"
 
 echo.
-echo Application started! Two windows should appear:
-echo   1. Calculator (320x240)
-echo   2. Button Panel (320x270)
+echo Application started!
 echo.
