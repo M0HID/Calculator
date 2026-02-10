@@ -7,12 +7,13 @@ idf_component_register(
         "input_hal.c"
         "mcp23017_button_driver.c"
         "../../src/button_keymap.c"
-        "../../src/math.c"
+        "../../src/calc_math.c"
         "../../src/graph.c"
         "../../src/stats.c"
         "../../src/solver.c"
         "../../src/mechanics.c"
         "../../src/expr_eval.c"
+        "../../src/settings.c"
         "../../src/main_menu.c"
         "../../src/ui_submenu.c"
         "../../src/font_math_14.c"
@@ -21,3 +22,5 @@ idf_component_register(
         "." 
         "../../src"
 )
+
+target_compile_definitions(__idf_main PRIVATE LV_LVGL_H_INCLUDE_SIMPLE)

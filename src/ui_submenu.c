@@ -3,7 +3,7 @@
 #include "input_hal.h"
 #include <string.h>
 
-/* Internal state for active submenu */
+
 typedef struct {
     const SubMenuItem *items;
     int item_count;
@@ -17,7 +17,7 @@ typedef struct {
 
 static SubMenuCtx *active_submenu = NULL;
 
-/* Update visual highlight */
+
 static void update_highlight(SubMenuCtx *ctx) {
     for (int i = 0; i < ctx->item_count; i++) {
         if (i == ctx->selection) {
@@ -29,7 +29,7 @@ static void update_highlight(SubMenuCtx *ctx) {
     }
 }
 
-/* Key event handler */
+
 static void submenu_key_cb(lv_event_t *e) {
     uint32_t key = lv_event_get_key(e);
     SubMenuCtx *ctx = active_submenu;
@@ -63,24 +63,24 @@ static void submenu_key_cb(lv_event_t *e) {
     }
 }
 
-/* Public API */
+
 lv_group_t* ui_create_submenu(
     const SubMenuItem *items,
     int item_count,
     const SubMenuStyle *style,
     void (*on_menu)(void)
 ) {
-    /* Clean up any previous submenu */
+    
     if (active_submenu) {
         ui_submenu_cleanup(active_submenu->group);
     }
 
-    /* Set up screen */
+    
     lv_obj_t *scr = lv_scr_act();
     lv_obj_clean(scr);
     ui_setup_screen(scr);
 
-    /* Allocate context */
+    
     SubMenuCtx *ctx = lv_malloc(sizeof(SubMenuCtx));
     ctx->items = items;
     ctx->item_count = item_count;
@@ -89,17 +89,17 @@ lv_group_t* ui_create_submenu(
     ctx->focus_bg = style->focus_bg_color;
     ctx->labels = lv_malloc(sizeof(lv_obj_t*) * item_count);
 
-    /* Create group */
+    
     ctx->group = lv_group_create();
 
-    /* Create key receiver (hidden object that receives key events) */
+    
     ctx->key_recv = lv_obj_create(scr);
     lv_obj_set_size(ctx->key_recv, 0, 0);
     lv_obj_add_flag(ctx->key_recv, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_event_cb(ctx->key_recv, submenu_key_cb, LV_EVENT_KEY, NULL);
     lv_group_add_obj(ctx->group, ctx->key_recv);
 
-    /* Create menu items */
+    
     int y = CONTENT_TOP;
     for (int i = 0; i < item_count; i++) {
         lv_obj_t *lbl = lv_label_create(scr);
@@ -116,14 +116,14 @@ lv_group_t* ui_create_submenu(
         y += 26;
     }
 
-    /* Hint bar */
+    
     ui_create_hint_bar(scr, style->hint_text);
 
-    /* Set input device group */
+    
     lv_indev_t *indev = get_navigation_indev();
     if (indev) lv_indev_set_group(indev, ctx->group);
 
-    /* Focus key receiver and highlight first item */
+    
     lv_group_focus_obj(ctx->key_recv);
     update_highlight(ctx);
 

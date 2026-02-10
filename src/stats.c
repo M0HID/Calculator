@@ -23,7 +23,7 @@ double sqrt(double x);
 double pow(double x, double y);
 double fabs(double x);
 
-/* ── Distribution types ── */
+
 typedef enum {
     STATS_MENU,
     STATS_BINOMIAL,
@@ -48,16 +48,16 @@ static const char *dist_names[] = {
 
 static StatsMode current_mode = STATS_MENU;
 
-/* UI elements */
+
 static lv_obj_t *dist_label = NULL;
 static lv_obj_t *param_labels[3];
 static lv_obj_t *param_textareas[3];
 static lv_obj_t *result_label = NULL;
 static lv_group_t *stats_group = NULL;
 static lv_obj_t *hint_lbl = NULL;
-static int focused_field = 0;  /* 0..2 = which textarea has focus */
+static int focused_field = 0;  
 
-/* Parameter names */
+
 static const char *param_names[][3] = {
     {"n (trials):",      "k (successes):",   "p (prob):"},
     {"n (trials):",      "k (max):",         "p (prob):"},
@@ -66,7 +66,7 @@ static const char *param_names[][3] = {
     {"p (prob):",        "\xCE\xBC (mean):", "\xCF\x83 (std dev):"}
 };
 
-/* ── Math functions ── */
+
 
 static double factorial(int n) {
     if (n < 0) return NAN;
@@ -135,7 +135,7 @@ static double normal_inv(double p, double mu, double sigma) {
     return mu + sigma * sqrt(2.0) * erf_inv_approx(2.0 * p - 1.0);
 }
 
-/* Forward declarations */
+
 static void show_stats_menu(void);
 static void show_binomial_pmf(void);
 static void show_binomial_cdf(void);
@@ -143,10 +143,10 @@ static void show_normal_pdf(void);
 static void show_normal_cdf(void);
 static void show_inverse_normal(void);
 
-/* ── UI helpers ── */
+
 
 static void cleanup_stats_ui(void) {
-    /* Clean up group and UI */
+    
     if (stats_group) {
         ui_submenu_cleanup(stats_group);
         stats_group = NULL;
@@ -160,7 +160,7 @@ static void cleanup_stats_ui(void) {
     }
 }
 
-/* Create a standard stats screen */
+
 static lv_obj_t *setup_stats_screen(const char *hint_text) {
     cleanup_stats_ui();
 
@@ -170,7 +170,7 @@ static lv_obj_t *setup_stats_screen(const char *hint_text) {
 
     stats_group = lv_group_create();
 
-    /* Hint bar */
+    
     hint_lbl = ui_create_hint_bar(scr, hint_text);
 
     lv_indev_t *indev = get_navigation_indev();
@@ -179,7 +179,7 @@ static lv_obj_t *setup_stats_screen(const char *hint_text) {
     return scr;
 }
 
-/* ── Context for active distribution ── */
+
 
 typedef struct {
     lv_obj_t **fields;
@@ -190,7 +190,7 @@ typedef struct {
 
 static StatsCtx *active_stats_ctx = NULL;
 
-/* Key handler on individual textareas: Up/Down navigate, Enter calculates */
+
 static void stats_textarea_key_cb(lv_event_t *e) {
     uint32_t key = lv_event_get_key(e);
 
@@ -223,7 +223,7 @@ static void stats_textarea_key_cb(lv_event_t *e) {
     }
 }
 
-/* ── Stats menu ── */
+
 
 static const SubMenuItem stats_menu_items[] = {
     {"Binomial P(X=k)", show_binomial_pmf},
@@ -248,19 +248,19 @@ static void show_stats_menu(void) {
     stats_group = ui_create_submenu(stats_menu_items, STATS_MENU_ITEMS, &style, main_menu_create);
 }
 
-/* ── Individual distribution screens ── */
 
-/* Helper to create 3-parameter distribution screen */
+
+
 static void create_dist_screen(const char *title, const char **param_labels_text, 
                               void (*calc_fn)(lv_obj_t**, int, lv_obj_t*),
                               lv_obj_t **fields_out, StatsCtx *ctx) {
     lv_obj_t *scr = setup_stats_screen("[=] Calc  [AC] Back  [M] Menu");
 
-    /* Title */
+    
     dist_label = ui_label(scr, title, CONTENT_SIDE, CONTENT_TOP);
     lv_obj_set_style_text_color(dist_label, COL_ACCENT_STATS, 0);
 
-    /* 3 parameter rows */
+    
     int y = CONTENT_TOP + 22;
     for (int i = 0; i < 3; i++) {
         param_labels[i] = ui_label(scr, param_labels_text[i], CONTENT_SIDE, y + 4);
@@ -279,7 +279,7 @@ static void create_dist_screen(const char *title, const char **param_labels_text
         y += ROW_SPACING;
     }
 
-    /* Result label */
+    
     result_label = lv_label_create(scr);
     lv_obj_set_pos(result_label, CONTENT_SIDE, y + 6);
     lv_obj_set_size(result_label, LCD_H_RES - 2 * CONTENT_SIDE, 30);
@@ -287,7 +287,7 @@ static void create_dist_screen(const char *title, const char **param_labels_text
     lv_obj_set_style_text_font(result_label, FONT_PRIMARY, 0);
     lv_label_set_text(result_label, "");
 
-    /* Set up context */
+    
     ctx->fields = fields_out;
     ctx->field_count = 3;
     ctx->result_label = result_label;
@@ -297,7 +297,7 @@ static void create_dist_screen(const char *title, const char **param_labels_text
     lv_group_focus_obj(param_textareas[0]);
 }
 
-/* Binomial PMF calculation */
+
 static lv_obj_t *binomial_pmf_fields[3];
 static StatsCtx binomial_pmf_ctx;
 
@@ -320,7 +320,7 @@ static void show_binomial_pmf(void) {
                       calc_binomial_pmf, binomial_pmf_fields, &binomial_pmf_ctx);
 }
 
-/* Binomial CDF calculation */
+
 static lv_obj_t *binomial_cdf_fields[3];
 static StatsCtx binomial_cdf_ctx;
 
@@ -343,7 +343,7 @@ static void show_binomial_cdf(void) {
                       calc_binomial_cdf, binomial_cdf_fields, &binomial_cdf_ctx);
 }
 
-/* Normal PDF calculation */
+
 static lv_obj_t *normal_pdf_fields[3];
 static StatsCtx normal_pdf_ctx;
 
@@ -366,7 +366,7 @@ static void show_normal_pdf(void) {
                       calc_normal_pdf, normal_pdf_fields, &normal_pdf_ctx);
 }
 
-/* Normal CDF calculation */
+
 static lv_obj_t *normal_cdf_fields[3];
 static StatsCtx normal_cdf_ctx;
 
@@ -389,7 +389,7 @@ static void show_normal_cdf(void) {
                       calc_normal_cdf, normal_cdf_fields, &normal_cdf_ctx);
 }
 
-/* Inverse Normal calculation */
+
 static lv_obj_t *inverse_normal_fields[3];
 static StatsCtx inverse_normal_ctx;
 
@@ -412,7 +412,7 @@ static void show_inverse_normal(void) {
                       calc_inverse_normal, inverse_normal_fields, &inverse_normal_ctx);
 }
 
-/* ── Public API ── */
+
 void stats_app_start(void) {
     show_stats_menu();
 }

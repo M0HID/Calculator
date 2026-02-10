@@ -13,7 +13,6 @@ int isinf(double x);
 #define SCREEN_W LCD_H_RES
 #define SCREEN_H LCD_V_RES
 
-/* Graph canvas: below info bar, above hint bar */
 #define CANVAS_Y 30
 #define CANVAS_W SCREEN_W
 #define CANVAS_H (HINT_BAR_Y - CANVAS_Y)
@@ -43,7 +42,6 @@ static int trace_enabled = 0;
 static double trace_x = 0.0;
 static int trace_func_idx = 0;
 
-/* UI elements – Function List */
 static lv_obj_t *func_list_container = NULL;
 static lv_obj_t *func_rows[MAX_FUNCTIONS];
 static lv_obj_t *func_checkboxes[MAX_FUNCTIONS];
@@ -52,7 +50,6 @@ static lv_obj_t *func_labels[MAX_FUNCTIONS];
 static lv_obj_t *func_textareas[MAX_FUNCTIONS];
 static lv_obj_t *hint_label = NULL;
 
-/* UI elements – Graph View */
 static lv_obj_t *graph_container = NULL;
 static lv_obj_t *canvas = NULL;
 static lv_obj_t *info_label = NULL;
@@ -63,18 +60,14 @@ LV_DRAW_BUF_DEFINE_STATIC(canvas_buf, CANVAS_W, CANVAS_H, LV_COLOR_FORMAT_NATIVE
 static lv_group_t *graph_group = NULL;
 static lv_obj_t *key_receiver = NULL;
 
-/* Forward declarations */
 static void show_function_list(void);
 static void show_graph_view(void);
 static void draw_graph(void);
 static void update_function_list_ui(void);
 static void update_graph_info(void);
 
-/* ── Coordinate transforms ── */
 static int g2cx(double gx) { return (int)((gx - x_min) / (x_max - x_min) * CANVAS_W); }
 static int g2cy(double gy) { return (int)(CANVAS_H - (gy - y_min) / (y_max - y_min) * CANVAS_H); }
-
-/* ── Drawing ── */
 
 static void draw_axes(void) {
     lv_layer_t layer;
@@ -169,8 +162,6 @@ static void draw_graph(void) {
     draw_trace_cursor();
 }
 
-/* ── UI update ── */
-
 static void update_function_list_ui(void) {
     for (int i = 0; i < MAX_FUNCTIONS; i++) {
         if (functions[i].enabled) lv_obj_add_state(func_checkboxes[i], LV_STATE_CHECKED);
@@ -219,187 +210,6 @@ static void update_graph_info(void) {
     }
 }
 
-/* ── Event handlers ── */
-
-static void textarea_event_cb(lv_event_t *e) {
-    lv_event_code_t code = lv_event_get_code(e);
-    int idx = (int)(intptr_t)lv_event_get_user_data(e);
-    if (code == LV_EVENT_READY) {
-        if (editing_function == idx) {
-            const char *text = lv_textarea_get_text(func_textareas[idx]);
-            strncpy(functions[idx].equation, text, sizeof(functions[idx].equation) - 1);
-            editing_function = -1;
-            if (key_receiver) lv_group_focus_obj(key_receiver);
-            update_function_list_ui();
-        }
-    } else if (code == LV_EVENT_CANCEL) {
-        editing_function = -1;
-        if (key_receiver) lv_group_focus_obj(key_receiver);
-        update_function_list_ui();
-    }
-}
-
-static void funclist_key_cb(lv_event_t *e) {
-    uint32_t key = lv_event_get_key(e);
-    if (editing_function >= 0) {
-        /* When editing, handle all keys here and prevent default textarea behavior */
-        switch (key) {
-        case LV_KEY_ENTER:
-            /* Save the formula */
-            {
-                const char *text = lv_textarea_get_text(func_textareas[editing_function]);
-                strncpy(functions[editing_function].equation, text, sizeof(functions[editing_function].equation) - 1);
-                editing_function = -1;
-                if (key_receiver) lv_group_focus_obj(key_receiver);
-                update_function_list_ui();
-            }
-            return;
-        case LV_KEY_ESC:
-        case 'M':
-            editing_function = -1;
-            if (key_receiver) lv_group_focus_obj(key_receiver);
-            update_function_list_ui();
-            return;
-        case 'X':  /* ^ button */
-            lv_textarea_add_text(func_textareas[editing_function], "^");
-            return;
-        case 'W':  /* x^2 button */
-            lv_textarea_add_text(func_textareas[editing_function], "^2");
-            return;
-        case 'c':  /* cos button */
-            lv_textarea_add_text(func_textareas[editing_function], "cos(");
-            return;
-        case 's':  /* sin button */
-            lv_textarea_add_text(func_textareas[editing_function], "sin(");
-            return;
-        case 't':  /* tan button */
-            lv_textarea_add_text(func_textareas[editing_function], "tan(");
-            return;
-        case 'r':  /* sqrt button */
-            lv_textarea_add_text(func_textareas[editing_function], "sqrt(");
-            return;
-        case 'l':  /* ln button */
-            lv_textarea_add_text(func_textareas[editing_function], "ln(");
-            return;
-        case 'L':  /* log button */
-            lv_textarea_add_text(func_textareas[editing_function], "log(");
-            return;
-        case 'P':  /* pi button */
-            lv_textarea_add_text(func_textareas[editing_function], "pi");
-            return;
-        case 'E':  /* e button */
-            lv_textarea_add_text(func_textareas[editing_function], "e");
-            return;
-        case 'V':  /* VAR button */
-        case 'x':  /* x button */
-            lv_textarea_add_text(func_textareas[editing_function], "x");
-            return;
-        case 'G':  /* CALC button - switch to graph view */
-            show_graph_view();
-            return;
-        case LV_KEY_BACKSPACE:
-            lv_textarea_delete_char(func_textareas[editing_function]);
-            return;
-        case LV_KEY_LEFT:
-            lv_textarea_cursor_left(func_textareas[editing_function]);
-            return;
-        case LV_KEY_RIGHT:
-            lv_textarea_cursor_right(func_textareas[editing_function]);
-            return;
-        /* Ignore buttons that shouldn't type anything */
-        case 'y': case 'z':  /* Y, Z keys - ignore */
-        case 'S': case 'A': case 'O':  /* SHIFT, ALPHA, ON */
-        case 'K': case 'Q': case 'f':  /* CONST, EXP, FRAC */
-            return;
-        default:
-            /* Only allow valid expression characters */
-            if ((key >= '0' && key <= '9') || key == '+' || key == '-' ||
-                key == '*' || key == '/' || key == '.' || key == '(' ||
-                key == ')' || key == '^' || key == '!') {
-                char str[2] = {(char)key, '\0'};
-                lv_textarea_add_text(func_textareas[editing_function], str);
-            }
-            return;
-        }
-    }
-    /* Not editing - handle navigation keys */
-    switch (key) {
-    case LV_KEY_UP:   if (selected_function > 0) selected_function--; update_function_list_ui(); break;
-    case LV_KEY_DOWN: if (selected_function < MAX_FUNCTIONS-1) selected_function++; update_function_list_ui(); break;
-    case LV_KEY_ENTER:
-        editing_function = selected_function;
-        update_function_list_ui();
-        /* Don't focus the textarea - keep key_receiver focused to intercept all keys */
-        break;
-    case LV_KEY_ESC:
-        functions[selected_function].enabled = !functions[selected_function].enabled;
-        update_function_list_ui();
-        break;
-    case 'G': show_graph_view(); break;
-    case 'M': main_menu_create(); break;
-    }
-}
-
-static void graph_key_cb(lv_event_t *e) {
-    uint32_t key = lv_event_get_key(e);
-    double pan = (x_max - x_min) * 0.1;
-
-    switch (key) {
-    case LV_KEY_LEFT:
-        if (trace_enabled) { trace_x -= (x_max-x_min)*0.02; if (trace_x < x_min) trace_x = x_min; }
-        else { x_min -= pan; x_max -= pan; }
-        break;
-    case LV_KEY_RIGHT:
-        if (trace_enabled) { trace_x += (x_max-x_min)*0.02; if (trace_x > x_max) trace_x = x_max; }
-        else { x_min += pan; x_max += pan; }
-        break;
-    case LV_KEY_UP:
-        if (trace_enabled) {
-            for (int i = 1; i <= MAX_FUNCTIONS; i++) {
-                int n = (trace_func_idx + i) % MAX_FUNCTIONS;
-                if (functions[n].enabled && strlen(functions[n].equation) > 0) { trace_func_idx = n; break; }
-            }
-        } else { y_min += pan; y_max += pan; }
-        break;
-    case LV_KEY_DOWN:
-        if (trace_enabled) {
-            for (int i = 1; i <= MAX_FUNCTIONS; i++) {
-                int p = (trace_func_idx - i + MAX_FUNCTIONS) % MAX_FUNCTIONS;
-                if (functions[p].enabled && strlen(functions[p].equation) > 0) { trace_func_idx = p; break; }
-            }
-        } else { y_min -= pan; y_max -= pan; }
-        break;
-    case '+': { double cx=(x_min+x_max)/2, cy=(y_min+y_max)/2, rx=(x_max-x_min)/3, ry=(y_max-y_min)/3;
-                x_min=cx-rx; x_max=cx+rx; y_min=cy-ry; y_max=cy+ry; } break;
-    case '-': { double cx=(x_min+x_max)/2, cy=(y_min+y_max)/2, rx=(x_max-x_min)*0.75, ry=(y_max-y_min)*0.75;
-                x_min=cx-rx; x_max=cx+rx; y_min=cy-ry; y_max=cy+ry; } break;
-    case 'V':
-        trace_enabled = !trace_enabled;
-        if (trace_enabled) {
-            trace_x = (x_min + x_max) / 2;
-            trace_func_idx = -1;
-            for (int i = 0; i < MAX_FUNCTIONS; i++)
-                if (functions[i].enabled && strlen(functions[i].equation) > 0) { trace_func_idx = i; break; }
-            if (trace_func_idx < 0) trace_enabled = 0;
-        }
-        break;
-    case LV_KEY_ESC: 
-        show_function_list();
-        return;
-    case LV_KEY_ENTER:
-        show_function_list();
-        editing_function = selected_function;
-        update_function_list_ui();
-        /* Don't focus textarea - keep key_receiver focused to intercept all keys */
-        return;
-    case 'M': main_menu_create(); return;
-    }
-    draw_graph();
-    update_graph_info();
-}
-
-/* ── Screen management ── */
-
 static void show_function_list(void) {
     current_screen = SCREEN_FUNCTION_LIST;
     trace_enabled = 0;
@@ -408,7 +218,6 @@ static void show_function_list(void) {
     lv_obj_t *scr = lv_scr_act();
     ui_setup_screen(scr);
 
-    /* Function list container */
     func_list_container = lv_obj_create(scr);
     lv_obj_set_size(func_list_container, SCREEN_W - 8, HINT_BAR_Y - CONTENT_TOP - 2);
     lv_obj_set_pos(func_list_container, 4, CONTENT_TOP);
@@ -463,10 +272,8 @@ static void show_function_list(void) {
         lv_obj_add_event_cb(func_textareas[i], textarea_event_cb, LV_EVENT_CANCEL, (void*)(intptr_t)i);
     }
 
-    /* Hint bar */
     hint_label = ui_create_hint_bar(scr, "");
 
-    /* Navigation */
     graph_group = lv_group_create();
     key_receiver = lv_obj_create(scr);
     lv_obj_set_size(key_receiver, 0, 0);
@@ -489,7 +296,6 @@ static void show_graph_view(void) {
     lv_obj_t *scr = lv_scr_act();
     ui_setup_screen(scr);
 
-    /* Info bar at top */
     info_label = lv_label_create(scr);
     lv_obj_set_pos(info_label, 4, 2);
     lv_obj_set_style_text_color(info_label, COL_TEXT_SEC, 0);
@@ -500,13 +306,11 @@ static void show_graph_view(void) {
     lv_obj_set_style_text_color(coords_label, COL_TEXT, 0);
     lv_obj_set_style_text_font(coords_label, FONT_SECONDARY, 0);
 
-    /* Canvas */
     canvas = lv_canvas_create(scr);
     LV_DRAW_BUF_INIT_STATIC(canvas_buf);
     lv_canvas_set_draw_buf(canvas, &canvas_buf);
     lv_obj_set_pos(canvas, 0, CANVAS_Y);
 
-    /* Key handler */
     graph_group = lv_group_create();
     lv_obj_t *recv = lv_obj_create(scr);
     lv_obj_set_size(recv, 0, 0);

@@ -1,21 +1,11 @@
 #include "expr_eval.h"
+#include "settings.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 
-// Explicitly declare math functions to avoid implicit declaration errors
-double sqrt(double x);
-double sin(double x);
-double cos(double x);
-double tan(double x);
-double pow(double x, double y);
-double log(double x);     // Natural logarithm (ln)
-double log10(double x);   // Base-10 logarithm
-double fabs(double x);    // Absolute value
-double floor(double x);   // Round down
-double ceil(double x);    // Round up
 
-// NAN definition if not available
 #ifndef NAN
 #define NAN (0.0/0.0)
 #endif
@@ -24,7 +14,7 @@ double ceil(double x);    // Round up
 #define INFINITY (1.0/0.0)
 #endif
 
-// Math constants
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -33,7 +23,7 @@ double ceil(double x);    // Round up
 #define M_E 2.71828182845904523536
 #endif
 
-// Current value of x for expression evaluation
+
 static double current_x_value = 0.0;
 
 typedef struct {
@@ -70,13 +60,13 @@ static double parse_number(Parser *p) {
 
 static double parse_expression(Parser *p);
 
-// Calculate factorial
+
 static double factorial(double n) {
     if (n < 0 || n != (long long)n) {
-        return NAN; // Factorial only for non-negative integers
+        return NAN; 
     }
     if (n > 170) {
-        return INFINITY; // Overflow protection
+        return INFINITY; 
     }
     
     double result = 1.0;
@@ -89,13 +79,13 @@ static double factorial(double n) {
 static double parse_factor(Parser *p) {
     skip_whitespace(p);
     
-    // Handle unary minus
+    
     if (p->str[p->pos] == '-') {
         p->pos++;
         return -parse_factor(p);
     }
     
-    // Handle unary plus
+    
     if (p->str[p->pos] == '+') {
         p->pos++;
         return parse_factor(p);
@@ -111,25 +101,33 @@ static double parse_factor(Parser *p) {
         return result;
     }
     
-    // Check for variable x
+    
     if (p->str[p->pos] == 'x' || p->str[p->pos] == 'X') {
         p->pos++;
         return current_x_value;
     }
     
-    // Check for pi constant
+    
+    if (p->str[p->pos] >= 'A' && p->str[p->pos] <= 'F' &&
+        !isalpha((unsigned char)p->str[p->pos + 1])) {
+        int idx = p->str[p->pos] - 'A';
+        p->pos++;
+        return settings_get_variable(idx);
+    }
+    
+    
     if (strncmp(&p->str[p->pos], "pi", 2) == 0) {
         p->pos += 2;
         return M_PI;
     }
     
-    // Check for e constant
+    
     if (p->str[p->pos] == 'e' && !isalpha((unsigned char)p->str[p->pos + 1])) {
         p->pos++;
         return M_E;
     }
     
-    // Check for functions - order matters! Check longer names first
+    
     if (strncmp(&p->str[p->pos], "sqrt", 4) == 0) {
         p->pos += 4;
         skip_whitespace(p);
@@ -181,6 +179,7 @@ static double parse_factor(Parser *p) {
             p->pos++;
             double arg = parse_expression(p);
             if (p->str[p->pos] == ')') p->pos++;
+            if (settings_get_angle_mode() == ANGLE_DEG) arg = arg * M_PI / 180.0;
             return sin(arg);
         }
     }
@@ -192,6 +191,7 @@ static double parse_factor(Parser *p) {
             p->pos++;
             double arg = parse_expression(p);
             if (p->str[p->pos] == ')') p->pos++;
+            if (settings_get_angle_mode() == ANGLE_DEG) arg = arg * M_PI / 180.0;
             return cos(arg);
         }
     }
@@ -203,11 +203,12 @@ static double parse_factor(Parser *p) {
             p->pos++;
             double arg = parse_expression(p);
             if (p->str[p->pos] == ')') p->pos++;
+            if (settings_get_angle_mode() == ANGLE_DEG) arg = arg * M_PI / 180.0;
             return tan(arg);
         }
     }
     
-    // ln = natural log
+    
     if (strncmp(&p->str[p->pos], "ln", 2) == 0) {
         p->pos += 2;
         skip_whitespace(p);
@@ -219,7 +220,7 @@ static double parse_factor(Parser *p) {
         }
     }
     
-    // log = base-10 log
+    
     if (strncmp(&p->str[p->pos], "log", 3) == 0) {
         p->pos += 3;
         skip_whitespace(p);
@@ -231,10 +232,10 @@ static double parse_factor(Parser *p) {
         }
     }
     
-    // Catch-all: skip any unrecognized alpha characters to prevent infinite loops.
-    // This handles stray letters like 'y', 'z', or incomplete function names.
+    
+    
     if (isalpha((unsigned char)p->str[p->pos])) {
-        // Skip the entire unrecognized word
+        
         while (isalpha((unsigned char)p->str[p->pos])) {
             p->pos++;
         }
@@ -247,7 +248,7 @@ static double parse_factor(Parser *p) {
 static double parse_term(Parser *p) {
     double result = parse_factor(p);
     
-    // Check for postfix factorial
+    
     skip_whitespace(p);
     if (p->str[p->pos] == '!') {
         p->pos++;
@@ -258,9 +259,10 @@ static double parse_term(Parser *p) {
         skip_whitespace(p);
         char op = p->str[p->pos];
         
-        // Implicit multiplication: number/variable followed by ( or known token
-        // e.g., "2pi", "3(x+1)", "2x", "(2)(3)", "2sin(x)"
+        
+        
         if (op == '(' || op == 'x' || op == 'X' || 
+            (op >= 'A' && op <= 'F' && !isalpha((unsigned char)p->str[p->pos + 1])) ||
             (op == 'p' && p->str[p->pos + 1] == 'i') ||
             (op == 'e' && !isalpha((unsigned char)p->str[p->pos + 1])) ||
             (isalpha((unsigned char)op) && (
@@ -274,10 +276,10 @@ static double parse_term(Parser *p) {
                 strncmp(&p->str[p->pos], "floor", 5) == 0 ||
                 strncmp(&p->str[p->pos], "ceil", 4) == 0
             ))) {
-            // Implicit multiplication detected
+            
             result *= parse_factor(p);
             
-            // Check for factorial after implicit multiplication
+            
             skip_whitespace(p);
             if (p->str[p->pos] == '!') {
                 p->pos++;
@@ -287,7 +289,7 @@ static double parse_term(Parser *p) {
             p->pos++;
             double factor = parse_factor(p);
             
-            // Check for factorial after factor
+            
             skip_whitespace(p);
             if (p->str[p->pos] == '!') {
                 p->pos++;
@@ -299,7 +301,7 @@ static double parse_term(Parser *p) {
             p->pos++;
             double divisor = parse_factor(p);
             
-            // Check for factorial after divisor
+            
             skip_whitespace(p);
             if (p->str[p->pos] == '!') {
                 p->pos++;
@@ -315,7 +317,7 @@ static double parse_term(Parser *p) {
             p->pos++;
             double exponent = parse_factor(p);
             
-            // Check for factorial in exponent
+            
             skip_whitespace(p);
             if (p->str[p->pos] == '!') {
                 p->pos++;

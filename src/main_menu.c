@@ -2,14 +2,15 @@
 #include "ui_common.h"
 #include "input_hal.h"
 #include "lvgl.h"
-#include "math.h"
+#include "calc_math.h"
 #include "graph.h"
 #include "stats.h"
 #include "solver.h"
 #include "mechanics.h"
+#include "settings.h"
 #include <string.h>
 
-/* Grid dimensions */
+
 #define MENU_COLS 3
 #define MENU_ROWS 2
 #define MENU_BUTTON_COUNT (MENU_COLS * MENU_ROWS)
@@ -17,7 +18,7 @@
 static lv_obj_t *menu_buttons[MENU_ROWS][MENU_COLS];
 static lv_group_t *menu_group = NULL;
 
-/* ── Navigation helpers ── */
+
 
 static bool get_current_position(int *row, int *col) {
   if (menu_group == NULL) return false;
@@ -45,11 +46,12 @@ static void openApp(int row, int col) {
     case 2: stats_app_start();     break;
     case 3: solver_app_start();    break;
     case 4: mechanics_app_start(); break;
+    case 5: settings_app_start();  break;
     default: break;
   }
 }
 
-/* ── Event handlers ── */
+
 
 static void key_event_handler(lv_event_t *e) {
   uint32_t key = lv_event_get_key(e);
@@ -74,7 +76,7 @@ static void click_event_handler(lv_event_t *e) {
       if (menu_buttons[r][c] == btn) { openApp(r, c); return; }
 }
 
-/* ── Main menu creation ── */
+
 
 void main_menu_create(void) {
   lvgl_lock();
@@ -89,12 +91,12 @@ void main_menu_create(void) {
   int start_y = (HINT_BAR_Y - (MENU_ROWS * icon_h + (MENU_ROWS - 1) * spacing_y)) / 2;
 
   const char *names[MENU_BUTTON_COUNT] = {
-      "Math", "Graph", "Stats", "Solver", "Mech.", "---"};
+      "Math", "Graph", "Stats", "Solver", "Mech.", "Setup"};
 
-  /* Accent colors used as the button's main colour */
+  
   lv_color_t colors[MENU_BUTTON_COUNT] = {
       COL_ACCENT_MATH, COL_ACCENT_GRAPH, COL_ACCENT_STATS,
-      COL_ACCENT_SOLVER, COL_ACCENT_MECH, lv_color_hex(0xBDBDBD)};
+      COL_ACCENT_SOLVER, COL_ACCENT_MECH, lv_color_hex(0x607D8B)};
 
   menu_group = lv_group_create();
   lv_indev_t *indev = get_navigation_indev();
@@ -111,13 +113,13 @@ void main_menu_create(void) {
     lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
     menu_buttons[row][col] = btn;
 
-    /* Normal: colored bg */
+    
     lv_obj_set_style_bg_color(btn, colors[i], LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_radius(btn, 6, 0);
     lv_obj_set_style_border_width(btn, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    /* Focused: white border ring, slightly darkened bg – NO zoom */
+    
     lv_obj_set_style_bg_color(btn, lv_color_darken(colors[i], 30),
                               LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_border_color(btn, lv_color_hex(0xFFFFFF),
@@ -131,7 +133,7 @@ void main_menu_create(void) {
 
     if (i == 0) lv_group_focus_obj(btn);
 
-    /* Label inside button */
+    
     lv_obj_t *label = lv_label_create(btn);
     lv_label_set_text(label, names[i]);
     lv_obj_set_style_text_font(label, FONT_PRIMARY, 0);
@@ -139,7 +141,7 @@ void main_menu_create(void) {
     lv_obj_center(label);
   }
 
-  /* Hint bar */
+  
   ui_create_hint_bar(scr, "[Enter] Open  [Arrows] Navigate");
 
   lvgl_unlock();
