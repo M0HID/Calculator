@@ -3,6 +3,7 @@
 #include "ui_submenu.h"
 #include "input_hal.h"
 #include "main_menu.h"
+#include "settings.h"
 #include "lvgl.h"
 #include <stdio.h>
 #include <string.h>
@@ -30,12 +31,15 @@ typedef enum {
     STATS_BINOMIAL_CDF,
     STATS_NORMAL,
     STATS_NORMAL_CDF,
-    STATS_NORMAL_INV
+    STATS_NORMAL_INV,
+    STATS_POISSON,
+    STATS_POISSON_CDF
 } StatsMode;
 
 typedef enum {
     DIST_BINOMIAL, DIST_BINOMIAL_CDF,
-    DIST_NORMAL, DIST_NORMAL_CDF, DIST_NORMAL_INV
+    DIST_NORMAL, DIST_NORMAL_CDF, DIST_NORMAL_INV,
+    DIST_POISSON, DIST_POISSON_CDF
 } DistType;
 
 static const char *dist_names[] = {
@@ -43,7 +47,9 @@ static const char *dist_names[] = {
     "Binomial CDF P(X<=k)",
     "Normal PDF",
     "Normal CDF",
-    "Inverse Normal"
+    "Inverse Normal",
+    "Poisson P(X=k)",
+    "Poisson CDF P(X<=k)"
 };
 
 static StatsMode current_mode = STATS_MENU;
@@ -63,7 +69,9 @@ static const char *param_names[][3] = {
     {"n (trials):",      "k (max):",         "p (prob):"},
     {"x (value):",       "\xCE\xBC (mean):", "\xCF\x83 (std dev):"},
     {"x (value):",       "\xCE\xBC (mean):", "\xCF\x83 (std dev):"},
-    {"p (prob):",        "\xCE\xBC (mean):", "\xCF\x83 (std dev):"}
+    {"p (prob):",        "\xCE\xBC (mean):", "\xCF\x83 (std dev):"},
+    {"\xCE\xBB (mean):", "k (value):",       ""},
+    {"\xCE\xBB (mean):", "k (max):",         ""}
 };
 
 
@@ -142,6 +150,8 @@ static void show_binomial_cdf(void);
 static void show_normal_pdf(void);
 static void show_normal_cdf(void);
 static void show_inverse_normal(void);
+static void show_poisson_pmf(void);
+static void show_poisson_cdf(void);
 
 
 
@@ -209,8 +219,12 @@ static void stats_textarea_key_cb(lv_event_t *e) {
         lv_event_stop_bubbling(e);
         return;
     case LV_KEY_ESC:
-    case LV_KEY_BACKSPACE:
         show_stats_menu();
+        lv_event_stop_bubbling(e);
+        return;
+    case 'K':
+        cleanup_stats_ui();
+        settings_app_start();
         lv_event_stop_bubbling(e);
         return;
     case 'M':
@@ -226,14 +240,16 @@ static void stats_textarea_key_cb(lv_event_t *e) {
 
 
 static const SubMenuItem stats_menu_items[] = {
-    {"Binomial P(X=k)", show_binomial_pmf},
+    {"Binomial P(X=k)",    show_binomial_pmf},
     {"Binomial CDF P(X<=k)", show_binomial_cdf},
-    {"Normal PDF", show_normal_pdf},
-    {"Normal CDF", show_normal_cdf},
-    {"Inverse Normal", show_inverse_normal},
+    {"Normal PDF",         show_normal_pdf},
+    {"Normal CDF",         show_normal_cdf},
+    {"Inverse Normal",     show_inverse_normal},
+    {"Poisson P(X=k)",     show_poisson_pmf},
+    {"Poisson CDF P(X<=k)", show_poisson_cdf},
 };
 
-#define STATS_MENU_ITEMS 5
+#define STATS_MENU_ITEMS 7
 
 static void show_stats_menu(void) {
     current_mode = STATS_MENU;
@@ -412,6 +428,59 @@ static void show_inverse_normal(void) {
                       calc_inverse_normal, inverse_normal_fields, &inverse_normal_ctx);
 }
 
+
+static double poisson_pmf(double lambda, int k) {
+    if (lambda <= 0.0 || k < 0) return NAN;
+    return exp(-lambda) * pow(lambda, k) / factorial(k);
+}
+
+static double poisson_cdf(double lambda, int k) {
+    if (lambda <= 0.0) return NAN;
+    if (k < 0) return 0.0;
+    double sum = 0.0;
+    for (int i = 0; i <= k; i++) sum += poisson_pmf(lambda, i);
+    return sum;
+}
+
+static lv_obj_t *poisson_pmf_fields[3];
+static StatsCtx poisson_pmf_ctx;
+
+static void calc_poisson_pmf(lv_obj_t **f, int n, lv_obj_t *res) {
+    double lambda = atof(lv_textarea_get_text(f[0]));
+    int k = (int)atof(lv_textarea_get_text(f[1]));
+    double result = poisson_pmf(lambda, k);
+    char buf[128];
+    if (isnan(result))      snprintf(buf, sizeof(buf), "Error: Invalid input");
+    else if (isinf(result)) snprintf(buf, sizeof(buf), "Infinity");
+    else                    snprintf(buf, sizeof(buf), "= %.8g", result);
+    lv_label_set_text(res, buf);
+}
+
+static void show_poisson_pmf(void) {
+    current_mode = STATS_POISSON;
+    create_dist_screen("Poisson P(X=k)", param_names[DIST_POISSON],
+                       calc_poisson_pmf, poisson_pmf_fields, &poisson_pmf_ctx);
+}
+
+static lv_obj_t *poisson_cdf_fields[3];
+static StatsCtx poisson_cdf_ctx;
+
+static void calc_poisson_cdf(lv_obj_t **f, int n, lv_obj_t *res) {
+    double lambda = atof(lv_textarea_get_text(f[0]));
+    int k = (int)atof(lv_textarea_get_text(f[1]));
+    double result = poisson_cdf(lambda, k);
+    char buf[128];
+    if (isnan(result))      snprintf(buf, sizeof(buf), "Error: Invalid input");
+    else if (isinf(result)) snprintf(buf, sizeof(buf), "Infinity");
+    else                    snprintf(buf, sizeof(buf), "= %.8g", result);
+    lv_label_set_text(res, buf);
+}
+
+static void show_poisson_cdf(void) {
+    current_mode = STATS_POISSON_CDF;
+    create_dist_screen("Poisson CDF P(X<=k)", param_names[DIST_POISSON_CDF],
+                       calc_poisson_cdf, poisson_cdf_fields, &poisson_cdf_ctx);
+}
 
 void stats_app_start(void) {
     show_stats_menu();

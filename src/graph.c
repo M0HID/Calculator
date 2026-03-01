@@ -3,6 +3,7 @@
 #include "input_hal.h"
 #include "expr_eval.h"
 #include "main_menu.h"
+#include "settings.h"
 #include "lvgl.h"
 #include <stdio.h>
 #include <string.h>
@@ -65,6 +66,9 @@ static void show_graph_view(void);
 static void draw_graph(void);
 static void update_function_list_ui(void);
 static void update_graph_info(void);
+static void textarea_event_cb(lv_event_t *e);
+static void funclist_key_cb(lv_event_t *e);
+static void graph_key_cb(lv_event_t *e);
 
 static int g2cx(double gx) { return (int)((gx - x_min) / (x_max - x_min) * CANVAS_W); }
 static int g2cy(double gy) { return (int)(CANVAS_H - (gy - y_min) / (y_max - y_min) * CANVAS_H); }
@@ -331,4 +335,143 @@ void graph_app_start(void) {
     trace_enabled = 0; trace_x = 0;
     selected_function = 0; editing_function = -1;
     show_function_list();
+}
+
+static void textarea_event_cb(lv_event_t *e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    int idx = (int)(intptr_t)lv_event_get_user_data(e);
+    if (idx < 0 || idx >= MAX_FUNCTIONS) return;
+
+    if (code == LV_EVENT_READY) {
+        const char *text = lv_textarea_get_text(func_textareas[idx]);
+        strncpy(functions[idx].equation, text, sizeof(functions[idx].equation) - 1);
+        functions[idx].equation[sizeof(functions[idx].equation) - 1] = '\0';
+    }
+    editing_function = -1;
+    lv_group_focus_obj(key_receiver);
+    update_function_list_ui();
+}
+
+static void funclist_key_cb(lv_event_t *e) {
+    uint32_t key = lv_event_get_key(e);
+
+    switch (key) {
+    case LV_KEY_UP:
+        if (selected_function > 0) { selected_function--; update_function_list_ui(); }
+        break;
+    case LV_KEY_DOWN:
+        if (selected_function < MAX_FUNCTIONS - 1) { selected_function++; update_function_list_ui(); }
+        break;
+    case LV_KEY_ENTER:
+        editing_function = selected_function;
+        update_function_list_ui();
+        lv_group_focus_obj(func_textareas[editing_function]);
+        break;
+    case LV_KEY_ESC:
+        functions[selected_function].enabled = !functions[selected_function].enabled;
+        update_function_list_ui();
+        break;
+    case 'G':
+        show_graph_view();
+        break;
+    case 'K':
+        settings_app_start();
+        break;
+    case 'M':
+        main_menu_create();
+        break;
+    default:
+        break;
+    }
+}
+
+static void graph_key_cb(lv_event_t *e) {
+    uint32_t key = lv_event_get_key(e);
+    double x_range = x_max - x_min;
+    double y_range = y_max - y_min;
+
+    switch (key) {
+    case LV_KEY_LEFT:
+        if (trace_enabled) {
+            trace_x -= x_range / CANVAS_W * 4;
+            draw_graph(); update_graph_info();
+        } else {
+            double shift = x_range * 0.2;
+            x_min -= shift; x_max -= shift;
+            draw_graph(); update_graph_info();
+        }
+        break;
+    case LV_KEY_RIGHT:
+        if (trace_enabled) {
+            trace_x += x_range / CANVAS_W * 4;
+            draw_graph(); update_graph_info();
+        } else {
+            double shift = x_range * 0.2;
+            x_min += shift; x_max += shift;
+            draw_graph(); update_graph_info();
+        }
+        break;
+    case LV_KEY_UP:
+        if (trace_enabled) {
+            for (int i = 1; i <= MAX_FUNCTIONS; i++) {
+                int next = (trace_func_idx + i) % MAX_FUNCTIONS;
+                if (functions[next].enabled) { trace_func_idx = next; break; }
+            }
+            draw_graph(); update_graph_info();
+        } else {
+            double shift = y_range * 0.2;
+            y_min += shift; y_max += shift;
+            draw_graph(); update_graph_info();
+        }
+        break;
+    case LV_KEY_DOWN:
+        if (trace_enabled) {
+            for (int i = MAX_FUNCTIONS - 1; i >= 0; i--) {
+                int prev = (trace_func_idx - 1 + MAX_FUNCTIONS) % MAX_FUNCTIONS;
+                if (functions[prev].enabled) { trace_func_idx = prev; break; }
+                trace_func_idx = prev;
+            }
+            draw_graph(); update_graph_info();
+        } else {
+            double shift = y_range * 0.2;
+            y_min -= shift; y_max -= shift;
+            draw_graph(); update_graph_info();
+        }
+        break;
+    case '+':
+        x_min += x_range * 0.2; x_max -= x_range * 0.2;
+        y_min += y_range * 0.2; y_max -= y_range * 0.2;
+        draw_graph(); update_graph_info();
+        break;
+    case '-':
+        x_min -= x_range * 0.25; x_max += x_range * 0.25;
+        y_min -= y_range * 0.25; y_max += y_range * 0.25;
+        draw_graph(); update_graph_info();
+        break;
+    case 'V':
+        trace_enabled = !trace_enabled;
+        if (trace_enabled) {
+            trace_x = (x_min + x_max) / 2.0;
+            trace_func_idx = 0;
+            for (int i = 0; i < MAX_FUNCTIONS; i++) {
+                if (functions[i].enabled) { trace_func_idx = i; break; }
+            }
+        }
+        draw_graph(); update_graph_info();
+        break;
+    case LV_KEY_ENTER:
+        show_function_list();
+        break;
+    case LV_KEY_ESC:
+        show_function_list();
+        break;
+    case 'K':
+        settings_app_start();
+        break;
+    case 'M':
+        main_menu_create();
+        break;
+    default:
+        break;
+    }
 }

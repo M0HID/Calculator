@@ -3,6 +3,7 @@
 #include "expr_eval.h"
 #include "input_hal.h"
 #include "main_menu.h"
+#include "settings.h"
 #include "lvgl.h"
 #include <stdio.h>
 #include <string.h>
@@ -101,8 +102,8 @@ static void handle_custom_key(uint32_t key) {
     case 'P': insert_text_at_cursor("pi");    break;
     case 'E': insert_text_at_cursor("e");     break;
     case 'V': insert_text_at_cursor("x");     break;
-    case 'W': insert_text_at_cursor("^2");    break;  
-    case 'X': insert_text_at_cursor("^");     break;  
+    case 'W': insert_text_at_cursor("^2");    break;
+    case 'X': insert_text_at_cursor("^");     break;
     case LV_KEY_BACKSPACE: delete_function_at_cursor(); break;
     default:
       lv_group_send_data(calc_group, key);
@@ -187,16 +188,20 @@ static void math_key_cb(lv_event_t *e) {
   case 'N': case 'P': case 'E': case 'V': case 'W': case 'X':
     handle_custom_key(key);
     return;
-  case 'x':  
+  case 'x':
     insert_text_at_cursor("x");
     return;
-  case 'A': insert_text_at_cursor("A"); return;  
+  case 'A': insert_text_at_cursor("A"); return;
   case 'B': insert_text_at_cursor("B"); return;
   case 'C': insert_text_at_cursor("C"); return;
   case 'D': insert_text_at_cursor("D"); return;
   case 'F': insert_text_at_cursor("F"); return;
-  case 'G': case 'K': case 'Q': case 'f':  
-  case 'y': case 'z': case 'S': case 'O':  
+  case 'y': insert_text_at_cursor("y"); return;
+  case 'z': insert_text_at_cursor("z"); return;
+  case 'e': insert_text_at_cursor("E"); return;
+  case 'K': settings_app_start(); return;
+  case 'G': case 'Q': case 'f':
+  case 'S': case 'O':
     return;
   case LV_KEY_BACKSPACE:
     delete_function_at_cursor();
@@ -208,7 +213,6 @@ static void math_key_cb(lv_event_t *e) {
     lv_textarea_cursor_right(input_textarea);
     return;
   default:
-    
     if ((key >= '0' && key <= '9') || key == '+' || key == '-' ||
         key == '*' || key == '/' || key == '.' || key == '(' ||
         key == ')' || key == '^' || key == '!') {
@@ -228,7 +232,6 @@ void math_app_start(void) {
   history_count = 0;
   selected_line = -1;
 
-  
   history_container = lv_obj_create(scr);
   lv_obj_set_size(history_container, LCD_H_RES - 8, 140);
   lv_obj_set_pos(history_container, 4, CONTENT_TOP);
@@ -267,7 +270,6 @@ void math_app_start(void) {
     lv_obj_add_flag(history_labels[i][1], LV_OBJ_FLAG_HIDDEN);
   }
 
-  
   current_result_label = lv_label_create(scr);
   lv_label_set_text(current_result_label, "");
   lv_obj_set_pos(current_result_label, 8, 148);
@@ -276,7 +278,6 @@ void math_app_start(void) {
   lv_obj_set_style_text_color(current_result_label, COL_RESULT, 0);
   lv_obj_set_style_text_font(current_result_label, FONT_PRIMARY, 0);
 
-  
   input_textarea = lv_textarea_create(scr);
   lv_obj_set_size(input_textarea, LCD_H_RES - 12, 34);
   lv_obj_set_pos(input_textarea, 6, 172);
@@ -285,7 +286,6 @@ void math_app_start(void) {
   ui_style_textarea(input_textarea, COL_ACCENT_MATH, COL_FOCUS_BG_MATH);
   lv_obj_add_event_cb(input_textarea, textarea_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
-  
   key_receiver = lv_obj_create(scr);
   lv_obj_set_size(key_receiver, 0, 0);
   lv_obj_add_flag(key_receiver, LV_OBJ_FLAG_HIDDEN);
@@ -298,6 +298,5 @@ void math_app_start(void) {
   if (indev) lv_indev_set_group(indev, calc_group);
   lv_group_focus_obj(key_receiver);
 
-  
   hint_lbl = ui_create_hint_bar(scr, "[=] Enter  [AC] Clear  [M] Menu");
 }

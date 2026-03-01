@@ -1,7 +1,7 @@
 #include "solver.h"
-#include "expr_eval.h"
 #include "input_hal.h"
 #include "main_menu.h"
+#include "settings.h"
 #include "ui_common.h"
 #include "ui_submenu.h"
 #include <math.h>
@@ -9,16 +9,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_ITERATIONS 100
-#define TOLERANCE 1e-8
-
 typedef enum {
   SOLVER_MENU,
   SOLVER_LINEAR,
   SOLVER_QUADRATIC,
-  SOLVER_NEWTON_RAPHSON,
-  SOLVER_CURVE_FITTING,
-  SOLVER_FUNCTION_STORAGE
 } SolverMode;
 
 static lv_group_t *solver_group = NULL;
@@ -29,42 +23,6 @@ static SolverMode current_mode = SOLVER_MENU;
 static void show_solver_menu(void);
 static void show_linear_solver(void);
 static void show_quadratic_solver(void);
-static void show_newton_raphson_solver(void);
-static void show_placeholder(const char *title);
-
-static double numerical_derivative(const char *expr, double x, double h) {
-  char temp[256];
-  strncpy(temp, expr, sizeof(temp) - 1);
-  temp[sizeof(temp) - 1] = '\0';
-  double fp = eval_expression_x(temp, x + h);
-  double fm = eval_expression_x(temp, x - h);
-  return (fp - fm) / (2.0 * h);
-}
-
-static int newton_raphson(const char *expr, double x0, double *result,
-                          int *iterations) {
-  double x = x0;
-  for (int i = 0; i < MAX_ITERATIONS; i++) {
-    double fx = eval_expression_x(expr, x);
-    if (fabs(fx) < TOLERANCE) {
-      *result = x;
-      *iterations = i + 1;
-      return 1;
-    }
-    double fpx = numerical_derivative(expr, x, 1e-6);
-    if (fabs(fpx) < 1e-12)
-      return 0;
-    x = x - fx / fpx;
-    if (i > 0 && fabs(fx) < TOLERANCE) {
-      *result = x;
-      *iterations = i + 1;
-      return 1;
-    }
-  }
-  *result = x;
-  *iterations = MAX_ITERATIONS;
-  return 0;
-}
 
 static int solve_linear(double a, double b, double *x) {
   if (fabs(a) < 1e-12)
@@ -126,33 +84,18 @@ static lv_obj_t *setup_solver_screen(const char *hint_text) {
 static const SubMenuItem solver_menu_items[] = {
     {"Linear (ax+b=0)", show_linear_solver},
     {"Quadratic (ax\xC2\xB2+bx+c=0)", show_quadratic_solver},
-    {"Newton-Raphson", show_newton_raphson_solver},
-    {"Curve Fitting", NULL},
-    {"Function Storage", NULL},
 };
 
-#define SOLVER_MENU_ITEMS 5
-
-static void open_curve_fitting(void) { show_placeholder("Curve Fitting"); }
-static void open_function_storage(void) {
-  show_placeholder("Function Storage");
-}
+#define SOLVER_MENU_ITEMS 2
 
 static void show_solver_menu(void) {
   current_mode = SOLVER_MENU;
   cleanup_solver_ui();
 
-  static SubMenuItem menu_items_copy[SOLVER_MENU_ITEMS];
-  for (int i = 0; i < SOLVER_MENU_ITEMS; i++) {
-    menu_items_copy[i] = solver_menu_items[i];
-  }
-  menu_items_copy[3].callback = open_curve_fitting;
-  menu_items_copy[4].callback = open_function_storage;
-
   SubMenuStyle style = {COL_ACCENT_SOLVER, COL_FOCUS_BG_SOLVER,
                         "[=] Select  [M] Menu"};
 
-  solver_group = ui_create_submenu(menu_items_copy, SOLVER_MENU_ITEMS, &style,
+  solver_group = ui_create_submenu(solver_menu_items, SOLVER_MENU_ITEMS, &style,
                                    main_menu_create);
 }
 
@@ -174,8 +117,11 @@ static void sub_solver_key_cb(lv_event_t *e) {
                            active_ctx->result_label);
     break;
   case LV_KEY_ESC:
-  case LV_KEY_BACKSPACE:
     show_solver_menu();
+    break;
+  case 'K':
+    cleanup_solver_ui();
+    settings_app_start();
     break;
   case 'M':
     cleanup_solver_ui();
@@ -252,6 +198,11 @@ static void solver_textarea_key_cb(lv_event_t *e) {
     return;
   case LV_KEY_ESC:
     show_solver_menu();
+    lv_event_stop_bubbling(e);
+    return;
+  case 'K':
+    cleanup_solver_ui();
+    settings_app_start();
     lv_event_stop_bubbling(e);
     return;
   case 'M':
@@ -366,83 +317,6 @@ static void show_quadratic_solver(void) {
   active_ctx = &quad_ctx;
 
   lv_group_focus_obj(quad_fields[0]);
-}
-
-static lv_obj_t *nr_fields[3];
-static SolverCtx nr_ctx;
-
-static void solve_nr_fn(lv_obj_t **f, int n, lv_obj_t *res) {
-  const char *expr = lv_textarea_get_text(f[0]);
-  double x0 = atof(lv_textarea_get_text(f[1]));
-  double result;
-  int iters;
-  char buf[256];
-  if (newton_raphson(expr, x0, &result, &iters))
-    snprintf(buf, sizeof(buf), "x = %.8g (%d iters)", result, iters);
-  else
-    snprintf(buf, sizeof(buf), "No convergence (x~%.6g)", result);
-  lv_label_set_text(res, buf);
-}
-
-static void show_newton_raphson_solver(void) {
-  current_mode = SOLVER_NEWTON_RAPHSON;
-  lv_obj_t *scr = setup_solver_screen("[=] Solve  [AC] Back  [M] Menu");
-  lv_obj_add_event_cb(solver_key_recv, sub_solver_key_cb, LV_EVENT_KEY, NULL);
-
-  ui_label(scr, "Solve f(x) = 0", CONTENT_SIDE, CONTENT_TOP);
-
-  int y = CONTENT_TOP + 22;
-  ui_label(scr, "f(x) =", CONTENT_SIDE, y + 4);
-  nr_fields[0] = lv_textarea_create(scr);
-  lv_obj_set_size(nr_fields[0], 240, FIELD_H);
-  lv_obj_set_pos(nr_fields[0], CONTENT_SIDE, y + 20);
-  lv_textarea_set_one_line(nr_fields[0], true);
-  lv_textarea_set_placeholder_text(nr_fields[0], "e.g. x^2-4");
-  ui_style_textarea(nr_fields[0], COL_ACCENT_SOLVER, COL_FOCUS_BG_SOLVER);
-  lv_obj_add_event_cb(nr_fields[0], solver_textarea_key_cb, LV_EVENT_KEY, NULL);
-  lv_group_add_obj(solver_group, nr_fields[0]);
-
-  y += 52;
-  ui_label(scr, "x0:", CONTENT_SIDE, y + 4);
-  nr_fields[1] = lv_textarea_create(scr);
-  lv_obj_set_size(nr_fields[1], 100, FIELD_H);
-  lv_obj_set_pos(nr_fields[1], LCD_H_RES - CONTENT_SIDE - 100, y);
-  lv_textarea_set_one_line(nr_fields[1], true);
-  lv_textarea_set_placeholder_text(nr_fields[1], "1");
-  ui_style_textarea(nr_fields[1], COL_ACCENT_SOLVER, COL_FOCUS_BG_SOLVER);
-  lv_obj_add_event_cb(nr_fields[1], solver_textarea_key_cb, LV_EVENT_KEY, NULL);
-  lv_group_add_obj(solver_group, nr_fields[1]);
-
-  y += ROW_SPACING + 4;
-  nr_fields[2] = ui_label(scr, "", CONTENT_SIDE, y + 8);
-  lv_obj_set_style_text_color(nr_fields[2], COL_RESULT, 0);
-
-  nr_ctx = (SolverCtx){nr_fields, 2, nr_fields[2], solve_nr_fn};
-  active_ctx = &nr_ctx;
-
-  lv_group_focus_obj(nr_fields[0]);
-}
-
-static void placeholder_key_cb(lv_event_t *e) {
-  uint32_t key = lv_event_get_key(e);
-  if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE)
-    show_solver_menu();
-  else if (key == 'M') {
-    cleanup_solver_ui();
-    main_menu_create();
-  }
-}
-
-static void show_placeholder(const char *title) {
-  lv_obj_t *scr = setup_solver_screen("[AC] Back  [M] Menu");
-  lv_obj_add_event_cb(solver_key_recv, placeholder_key_cb, LV_EVENT_KEY, NULL);
-
-  lv_obj_t *lbl = ui_label(scr, title, CONTENT_SIDE, CONTENT_TOP);
-  lv_obj_set_style_text_color(lbl, COL_ACCENT_SOLVER, 0);
-
-  ui_label(scr, "[Coming Soon]", CONTENT_SIDE, CONTENT_TOP + 30);
-
-  lv_group_focus_obj(solver_key_recv);
 }
 
 void solver_app_start(void) { show_solver_menu(); }

@@ -8,8 +8,8 @@
 #include "solver.h"
 #include "mechanics.h"
 #include "settings.h"
+#include "numerical_methods.h"
 #include <string.h>
-
 
 #define MENU_COLS 3
 #define MENU_ROWS 2
@@ -17,8 +17,6 @@
 
 static lv_obj_t *menu_buttons[MENU_ROWS][MENU_COLS];
 static lv_group_t *menu_group = NULL;
-
-
 
 static bool get_current_position(int *row, int *col) {
   if (menu_group == NULL) return false;
@@ -41,17 +39,15 @@ static void move(int dr, int dc) {
 static void openApp(int row, int col) {
   int index = row * MENU_COLS + col;
   switch (index) {
-    case 0: math_app_start();      break;
-    case 1: graph_app_start();     break;
-    case 2: stats_app_start();     break;
-    case 3: solver_app_start();    break;
-    case 4: mechanics_app_start(); break;
-    case 5: settings_app_start();  break;
+    case 0: math_app_start();               break;
+    case 1: graph_app_start();              break;
+    case 2: stats_app_start();              break;
+    case 3: solver_app_start();             break;
+    case 4: mechanics_app_start();          break;
+    case 5: numerical_methods_app_start();  break;
     default: break;
   }
 }
-
-
 
 static void key_event_handler(lv_event_t *e) {
   uint32_t key = lv_event_get_key(e);
@@ -65,6 +61,7 @@ static void key_event_handler(lv_event_t *e) {
       if (get_current_position(&r, &c)) openApp(r, c);
       break;
     }
+    case 'K': settings_app_start(); break;
     default: break;
   }
 }
@@ -75,8 +72,6 @@ static void click_event_handler(lv_event_t *e) {
     for (int c = 0; c < MENU_COLS; c++)
       if (menu_buttons[r][c] == btn) { openApp(r, c); return; }
 }
-
-
 
 void main_menu_create(void) {
   lvgl_lock();
@@ -91,12 +86,11 @@ void main_menu_create(void) {
   int start_y = (HINT_BAR_Y - (MENU_ROWS * icon_h + (MENU_ROWS - 1) * spacing_y)) / 2;
 
   const char *names[MENU_BUTTON_COUNT] = {
-      "Math", "Graph", "Stats", "Solver", "Mech.", "Setup"};
+      "Math", "Graph", "Stats", "Solver", "Mech.", "Num.\nMethods"};
 
-  
   lv_color_t colors[MENU_BUTTON_COUNT] = {
       COL_ACCENT_MATH, COL_ACCENT_GRAPH, COL_ACCENT_STATS,
-      COL_ACCENT_SOLVER, COL_ACCENT_MECH, lv_color_hex(0x607D8B)};
+      COL_ACCENT_SOLVER, COL_ACCENT_MECH, lv_color_hex(0x00897B)};
 
   menu_group = lv_group_create();
   lv_indev_t *indev = get_navigation_indev();
@@ -113,13 +107,11 @@ void main_menu_create(void) {
     lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
     menu_buttons[row][col] = btn;
 
-    
     lv_obj_set_style_bg_color(btn, colors[i], LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_radius(btn, 6, 0);
     lv_obj_set_style_border_width(btn, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    
     lv_obj_set_style_bg_color(btn, lv_color_darken(colors[i], 30),
                               LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_border_color(btn, lv_color_hex(0xFFFFFF),
@@ -133,16 +125,21 @@ void main_menu_create(void) {
 
     if (i == 0) lv_group_focus_obj(btn);
 
-    
     lv_obj_t *label = lv_label_create(btn);
     lv_label_set_text(label, names[i]);
     lv_obj_set_style_text_font(label, FONT_PRIMARY, 0);
     lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_center(label);
+    if (i == 5) {
+      lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
+      lv_obj_set_width(label, icon_w - 4);
+      lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
+      lv_obj_center(label);
+    } else {
+      lv_obj_center(label);
+    }
   }
 
-  
-  ui_create_hint_bar(scr, "[Enter] Open  [Arrows] Navigate");
+  ui_create_hint_bar(scr, "[Enter] Open  [Arrows] Navigate  [CONST] Settings");
 
   lvgl_unlock();
 }

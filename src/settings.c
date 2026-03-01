@@ -7,12 +7,9 @@
 #include <string.h>
 #include <stdlib.h>
 
-
 static AngleMode  angle_mode     = ANGLE_RAD;
-static int        decimal_places = 0;           
+static int        decimal_places = 0;
 static double     user_vars[SETTINGS_VAR_COUNT] = {0};
-
-
 
 AngleMode settings_get_angle_mode(void)        { return angle_mode; }
 void      settings_set_angle_mode(AngleMode m)  { angle_mode = m; }
@@ -22,16 +19,19 @@ void settings_set_decimal_places(int dp)       { decimal_places = (dp < 0) ? 0 :
 
 double settings_get_variable(int idx)          { return (idx >= 0 && idx < SETTINGS_VAR_COUNT) ? user_vars[idx] : 0; }
 void   settings_set_variable(int idx, double v){ if (idx >= 0 && idx < SETTINGS_VAR_COUNT) user_vars[idx] = v; }
-char   settings_get_variable_name(int idx)     { return (idx >= 0 && idx < SETTINGS_VAR_COUNT) ? (char)('A' + idx) : '?'; }
+char   settings_get_variable_name(int idx)     {
+    if (idx < 0 || idx >= SETTINGS_VAR_COUNT) return '?';
+    if (idx < 6) return (char)('A' + idx);
+    return (char)('x' + (idx - 6));
+}
 
-#define COL_ACCENT_SETTINGS   lv_color_hex(0x607D8B)   
+#define COL_ACCENT_SETTINGS   lv_color_hex(0x607D8B)
 #define COL_FOCUS_BG_SETTINGS lv_color_hex(0xECEFF1)
 
 static void show_settings_menu(void);
 static void show_angle_page(void);
 static void show_decimals_page(void);
 static void show_variables_page(void);
-
 
 static lv_group_t *angle_group  = NULL;
 static lv_obj_t   *angle_labels[2] = {NULL};
@@ -63,7 +63,7 @@ static void angle_key_cb(lv_event_t *e) {
         angle_mode = (angle_sel == 0) ? ANGLE_RAD : ANGLE_DEG;
         show_settings_menu();
         break;
-    case LV_KEY_ESC: case LV_KEY_BACKSPACE:
+    case LV_KEY_ESC:
         show_settings_menu();
         break;
     case 'M':
@@ -111,7 +111,6 @@ static void show_angle_page(void) {
 
     angle_update();
 
-    
     lv_obj_t *cur = ui_label(scr, "", CONTENT_SIDE, CONTENT_TOP + 92);
     lv_obj_set_style_text_font(cur, FONT_SECONDARY, 0);
     lv_obj_set_style_text_color(cur, COL_TEXT_SEC, 0);
@@ -121,7 +120,6 @@ static void show_angle_page(void) {
 
     ui_create_hint_bar(scr, "[Up/Dn] Select  [=] Confirm  [AC] Back  [M] Menu");
 }
-
 
 static lv_group_t *dec_group  = NULL;
 static lv_obj_t   *dec_labels[11] = {NULL};
@@ -151,7 +149,7 @@ static void dec_key_cb(lv_event_t *e) {
         decimal_places = dec_sel;
         show_settings_menu();
         break;
-    case LV_KEY_ESC: case LV_KEY_BACKSPACE:
+    case LV_KEY_ESC:
         show_settings_menu();
         break;
     case 'M':
@@ -174,7 +172,6 @@ static void show_decimals_page(void) {
     lv_obj_t *title = ui_label(scr, "Decimal Places", CONTENT_SIDE, CONTENT_TOP);
     lv_obj_set_style_text_color(title, COL_ACCENT_SETTINGS, 0);
 
-    
     lv_obj_t *cont = lv_obj_create(scr);
     lv_obj_set_size(cont, LCD_H_RES - 8, HINT_BAR_Y - CONTENT_TOP - 24);
     lv_obj_set_pos(cont, 4, CONTENT_TOP + 22);
@@ -217,7 +214,6 @@ static void show_decimals_page(void) {
     ui_create_hint_bar(scr, "[Up/Dn] Select  [=] Confirm  [AC] Back  [M] Menu");
 }
 
-
 static lv_group_t *var_group    = NULL;
 static lv_obj_t   *var_labels[SETTINGS_VAR_COUNT]  = {NULL};
 static lv_obj_t   *var_fields[SETTINGS_VAR_COUNT]  = {NULL};
@@ -234,7 +230,6 @@ static void var_key_cb(lv_event_t *e) {
     uint32_t key = lv_event_get_key(e);
     lv_obj_t *ta = lv_event_get_target(e);
 
-    
     int idx = -1;
     for (int i = 0; i < SETTINGS_VAR_COUNT; i++) {
         if (var_fields[i] == ta) { idx = i; break; }
@@ -250,7 +245,6 @@ static void var_key_cb(lv_event_t *e) {
         lv_event_stop_bubbling(e);
         return;
     case LV_KEY_ENTER:
-        
         for (int i = 0; i < SETTINGS_VAR_COUNT; i++) {
             const char *text = lv_textarea_get_text(var_fields[i]);
             if (strlen(text) > 0)
@@ -261,7 +255,7 @@ static void var_key_cb(lv_event_t *e) {
         show_settings_menu();
         lv_event_stop_bubbling(e);
         return;
-    case LV_KEY_ESC: case LV_KEY_BACKSPACE:
+    case LV_KEY_ESC:
         show_settings_menu();
         lv_event_stop_bubbling(e);
         return;
@@ -281,19 +275,27 @@ static void show_variables_page(void) {
     if (var_group) { lv_group_del(var_group); var_group = NULL; }
     var_group = lv_group_create();
 
-    lv_obj_t *title = ui_label(scr, "Variables (A\xe2\x80\x93""F)", CONTENT_SIDE, CONTENT_TOP);
+    lv_obj_t *title = ui_label(scr, "Variables (A-F, x/y/z)", CONTENT_SIDE, CONTENT_TOP);
     lv_obj_set_style_text_color(title, COL_ACCENT_SETTINGS, 0);
 
+    lv_obj_t *cont = lv_obj_create(scr);
+    lv_obj_set_size(cont, LCD_H_RES - 8, HINT_BAR_Y - CONTENT_TOP - 22);
+    lv_obj_set_pos(cont, 4, CONTENT_TOP + 22);
+    lv_obj_set_style_bg_opa(cont, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(cont, 0, 0);
+    lv_obj_set_style_pad_all(cont, 2, 0);
+    lv_obj_set_scrollbar_mode(cont, LV_SCROLLBAR_MODE_OFF);
+
     for (int i = 0; i < SETTINGS_VAR_COUNT; i++) {
-        int y = CONTENT_TOP + 24 + i * ROW_SPACING;
+        int y = i * ROW_SPACING;
 
         char lbl[8];
-        snprintf(lbl, sizeof(lbl), "%c:", 'A' + i);
-        var_labels[i] = ui_label(scr, lbl, CONTENT_SIDE, y + 4);
+        snprintf(lbl, sizeof(lbl), "%c:", settings_get_variable_name(i));
+        var_labels[i] = ui_label(cont, lbl, CONTENT_SIDE, y + 4);
 
-        var_fields[i] = lv_textarea_create(scr);
+        var_fields[i] = lv_textarea_create(cont);
         lv_obj_set_size(var_fields[i], 200, FIELD_H);
-        lv_obj_set_pos(var_fields[i], LCD_H_RES - CONTENT_SIDE - 200, y);
+        lv_obj_set_pos(var_fields[i], LCD_H_RES - CONTENT_SIDE - 200 - 8, y);
         lv_textarea_set_one_line(var_fields[i], true);
         lv_textarea_set_max_length(var_fields[i], 15);
         lv_textarea_set_placeholder_text(var_fields[i], "0");
@@ -302,7 +304,6 @@ static void show_variables_page(void) {
         lv_obj_add_event_cb(var_fields[i], var_key_cb, LV_EVENT_KEY, NULL);
         lv_group_add_obj(var_group, var_fields[i]);
 
-        
         if (user_vars[i] != 0) {
             char buf[32];
             snprintf(buf, sizeof(buf), "%.6g", user_vars[i]);
@@ -317,11 +318,10 @@ static void show_variables_page(void) {
     ui_create_hint_bar(scr, "[Up/Dn] Field  [=] Save  [AC] Back  [M] Menu");
 }
 
-
 static const SubMenuItem settings_items[] = {
     { "Angle Unit (RAD/DEG)",   show_angle_page     },
     { "Decimal Places",         show_decimals_page   },
-    { "Variable Editor (A-F)",  show_variables_page  },
+    { "Variable Editor (A-F, x/y/z)",  show_variables_page  },
 };
 
 static void show_settings_menu(void) {

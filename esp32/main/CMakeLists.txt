@@ -12,6 +12,7 @@ idf_component_register(
         "../../src/stats.c"
         "../../src/solver.c"
         "../../src/mechanics.c"
+        "../../src/numerical_methods.c"
         "../../src/expr_eval.c"
         "../../src/settings.c"
         "../../src/main_menu.c"

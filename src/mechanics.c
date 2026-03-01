@@ -2,12 +2,12 @@
 #include "ui_common.h"
 #include "input_hal.h"
 #include "main_menu.h"
+#include "settings.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <ctype.h>
-
 
 #define NAN_VAL (0.0/0.0)
 #define SUVAT_UNKNOWN -999999.0
@@ -75,16 +75,12 @@ static int solve_suvat(SUVAT *sv) {
       sv->s = (sv->v*sv->v - sv->u*sv->u) / (2.0*sv->a);
     if (IS_KNOWN(sv->s) && IS_KNOWN(sv->u) && IS_KNOWN(sv->v) && !IS_KNOWN(sv->t) && fabs(sv->u+sv->v) > 1e-10)
       sv->t = 2.0*sv->s / (sv->u+sv->v);
-    
     if (IS_KNOWN(sv->s) && IS_KNOWN(sv->v) && IS_KNOWN(sv->t) && !IS_KNOWN(sv->u) && fabs(sv->t) > 1e-10)
       sv->u = 2.0*sv->s / sv->t - sv->v;
-    
     if (IS_KNOWN(sv->s) && IS_KNOWN(sv->u) && IS_KNOWN(sv->t) && !IS_KNOWN(sv->v) && fabs(sv->t) > 1e-10)
       sv->v = 2.0*sv->s / sv->t - sv->u;
-    
     if (IS_KNOWN(sv->s) && IS_KNOWN(sv->v) && IS_KNOWN(sv->t) && !IS_KNOWN(sv->a) && fabs(sv->t) > 1e-10)
       sv->a = 2.0*(sv->v * sv->t - sv->s) / (sv->t * sv->t);
-    
     if (IS_KNOWN(sv->s) && IS_KNOWN(sv->a) && IS_KNOWN(sv->t) && !IS_KNOWN(sv->u) && fabs(sv->t) > 1e-10)
       sv->u = (sv->s - 0.5 * sv->a * sv->t * sv->t) / sv->t;
     if (count_known(sv) == before) break;
@@ -96,10 +92,8 @@ static void show_result_page(void);
 static void show_input_page(void);
 
 static void do_calculate(void) {
-  
   if (error_label) lv_label_set_text(error_label, "");
 
-  
   for (int i = 0; i < 5; i++) {
     const char *text = lv_textarea_get_text(input_fields[i]);
     if (strlen(text) > 0)
@@ -134,12 +128,10 @@ static void focus_input(int idx) {
   lv_group_focus_obj(input_fields[idx]);
 }
 
-
 static void mech_textarea_key_cb(lv_event_t *e) {
   uint32_t key = lv_event_get_key(e);
   lv_obj_t *ta = lv_event_get_target(e);
 
-  
   int idx = -1;
   for (int i = 0; i < 5; i++) {
     if (input_fields[i] == ta) { idx = i; break; }
@@ -159,11 +151,14 @@ static void mech_textarea_key_cb(lv_event_t *e) {
     lv_event_stop_bubbling(e);
     return;
   case LV_KEY_ESC:
-    
     for (int i = 0; i < 5; i++) lv_textarea_set_text(input_fields[i], "");
     current_suvat.s = SUVAT_UNKNOWN; current_suvat.u = SUVAT_UNKNOWN;
     current_suvat.v = SUVAT_UNKNOWN; current_suvat.a = SUVAT_UNKNOWN;
     current_suvat.t = SUVAT_UNKNOWN;
+    lv_event_stop_bubbling(e);
+    return;
+  case 'K':
+    settings_app_start();
     lv_event_stop_bubbling(e);
     return;
   case 'M':
@@ -175,11 +170,11 @@ static void mech_textarea_key_cb(lv_event_t *e) {
   }
 }
 
-
 static void mech_result_key_cb(lv_event_t *e) {
   uint32_t key = lv_event_get_key(e);
+  if (key == 'K') { settings_app_start(); return; }
   if (key == 'M') { main_menu_create(); return; }
-  if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) {
+  if (key == LV_KEY_ESC) {
     show_input_page();
     return;
   }
@@ -192,7 +187,6 @@ static void show_input_page(void) {
   lv_obj_clean(scr);
   ui_setup_screen(scr);
 
-  
   if (mech_group) { lv_group_del(mech_group); mech_group = NULL; }
   mech_group = lv_group_create();
 
@@ -212,11 +206,9 @@ static void show_input_page(void) {
     lv_textarea_set_placeholder_text(input_fields[i], "?");
     ui_style_textarea(input_fields[i], COL_ACCENT_MECH, COL_FOCUS_BG_MECH);
 
-    
     lv_obj_add_event_cb(input_fields[i], mech_textarea_key_cb, LV_EVENT_KEY, NULL);
     lv_group_add_obj(mech_group, input_fields[i]);
 
-    
     double val = get_sv(&current_suvat, i);
     if (IS_KNOWN(val)) {
       char buf[32];
@@ -225,7 +217,6 @@ static void show_input_page(void) {
     }
   }
 
-  
   error_label = lv_label_create(scr);
   lv_label_set_text(error_label, "");
   lv_obj_set_pos(error_label, CONTENT_SIDE, CONTENT_TOP + 4 + 5 * ROW_SPACING + 2);
@@ -236,10 +227,8 @@ static void show_input_page(void) {
   lv_indev_t *indev = get_navigation_indev();
   if (indev) lv_indev_set_group(indev, mech_group);
 
-  
   focus_input(0);
 
-  
   hint_lbl = ui_create_hint_bar(scr, "[Up/Dn] Field  [=] Calculate  [AC] Clear  [M] Menu");
 }
 
@@ -253,14 +242,12 @@ static void show_result_page(void) {
   if (mech_group) { lv_group_del(mech_group); mech_group = NULL; }
   mech_group = lv_group_create();
 
-  
   lv_obj_t *key_receiver = lv_obj_create(scr);
   lv_obj_set_size(key_receiver, 0, 0);
   lv_obj_add_flag(key_receiver, LV_OBJ_FLAG_HIDDEN);
   lv_obj_add_event_cb(key_receiver, mech_result_key_cb, LV_EVENT_KEY, NULL);
   lv_group_add_obj(mech_group, key_receiver);
 
-  
   for (int i = 0; i < 5; i++) {
     int y = CONTENT_TOP + 4 + i * ROW_SPACING;
     result_labels[i] = lv_label_create(scr);
@@ -273,7 +260,6 @@ static void show_result_page(void) {
     lv_obj_set_style_text_font(result_labels[i], FONT_PRIMARY, 0);
   }
 
-  
   lv_obj_t *eq = lv_label_create(scr);
   lv_label_set_text(eq, "v=u+at  s=ut+0.5at\xC2\xB2\nv\xC2\xB2=u\xC2\xB2+2as  s=(u+v)t/2");
   lv_obj_set_pos(eq, CONTENT_SIDE, CONTENT_TOP + 4 + 5 * ROW_SPACING + 4);
@@ -284,7 +270,6 @@ static void show_result_page(void) {
   if (indev) lv_indev_set_group(indev, mech_group);
   lv_group_focus_obj(key_receiver);
 
-  
   hint_lbl = ui_create_hint_bar(scr, "[AC] Back  [M] Menu");
 }
 

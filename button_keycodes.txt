@@ -36,13 +36,13 @@
 3,4=F12
 3,5=TAB
 
-# Row 4 (Row 5): A | B | C | D | E | F (unused in most apps)
-4,0=a
-4,1=b
-4,2=c
-4,3=d
+# Row 4 (Row 5): A | B | C | D | E | F (variable buttons)
+4,0=A
+4,1=B
+4,2=C
+4,3=D
 4,4=e
-4,5=f
+4,5=F
 
 # Row 5 (Row 6): X | 7 | 8 | 9 | DEL | AC
 5,0=`
