@@ -38,6 +38,42 @@ Although I am satisfied with the system I have built, there are a number of impr
 
 ---
 
+## Problems and How I Overcame Them
+
+The project encountered several challenges throughout development, spanning build errors, UI bugs, and more fundamental design problems that required significant rethinking.
+
+One of the earliest issues was a build error in `expr_eval.c` where `isnan`, `isinf`, and `NAN` were all undeclared. The root cause was simply a missing `#include <math.h>`, but a follow-up error then appeared because the include ordering placed `expr_eval.h` before `math.h`, meaning `NAN` was still not defined at the point it was first used. Both issues were fixed by reordering the includes correctly. While this was a minor fix, it highlighted early on that the expression evaluator was going to be the most sensitive part of the codebase, since it is called by every other module, and any subtle issue in it would surface everywhere.
+
+A more frustrating problem arose with the virtual keypad in iteration 2. After building the on-screen button grid, all buttons displayed their coordinates (`0,0`, `0,1`, `0,2`) instead of their labels. The cause was that `button_keycodes.txt` was not being found at runtime — the binary ran from `desktop/build/bin/` but the loader only searched the current working directory. The fix involved adding a fallback path search across three locations and adding a CMake `configure_file` step to automatically copy the config file into the build output folder on each build. This was particularly irritating because the bug only manifested at runtime and produced no error message other than a console warning, so it took some time to identify the root cause.
+
+The most time-consuming class of bug was the double-character insertion issue, which appeared twice — first in the graph formula editor in iteration 7, and again in the solver input fields in iteration 9. The problem was that pressing a special function button such as `sin(` caused two writes to the textarea: the raw character `s` from the keydown event, and then the full string `sin(` from the button handler, resulting in garbled output like `ssin(`. The fix was to register an `LV_EVENT_PREPROCESS_KEY` handler on each affected textarea, which consumed the raw keydown event before LVGL could pass it through, so only the handler-inserted string reached the buffer. The fact that this bug reappeared in the solver after already being fixed in the graph app was a reminder that the same pattern needed to be applied consistently across every textarea in the project, not just the ones where it was first noticed.
+
+A significant design problem was discovered in iteration 6, where the Greek and mathematical symbols used throughout the statistics and solver screens — σ, μ, π, √, Σ — were all rendering as empty boxes. The root cause was that the standard Montserrat font bundled with LVGL only covers basic Latin (U+0020–U+007F), and Greek Unicode code points were simply absent from its glyph table. The solution required generating two entirely custom LVGL fonts using the LVGL font converter tool, covering the Greek alphabet range (U+0391–U+03C9) and a set of mathematical symbols. These were then registered as design tokens in `ui_common.h` and applied to every affected label. This was one of the more involved fixes in the project, as it required understanding how LVGL compiles font data into C source files and how glyph ranges are specified during generation. Without it, the statistics app in particular would have looked broken, since parameter labels like μ (mean) and σ (standard deviation) are fundamental to presenting the distributions correctly.
+
+Another problem that required careful thought was the angle mode setting having no effect on calculations in iteration 8. The settings app had a working DEG/RAD toggle, but `expr_eval.c` always evaluated trigonometric functions in radians regardless of what was selected. The issue was that the setting was stored in `settings.c` but never passed to the evaluator. The fix involved adding an `angle_mode` variable to `expr_eval.c` with a dedicated setter function, and updating the `sin`, `cos`, and `tan` evaluation paths to check the current mode and convert from degrees to radians when necessary. This required touching both the settings and evaluator modules, and was a good example of where a lack of clear communication between modules caused a silent but incorrect result rather than an obvious error.
+
+---
+
+## Lessons Learned and Skills Developed
+
+**1. Designing software around a shared core:**
+Working on this project taught me the value of designing a shared computational core that all other modules depend on. The recursive descent parser in `expr_eval.c` is called by the math app, the graph plotter, the Newton-Raphson solver, and the numerical integrator — getting it right once and reusing it everywhere meant I never had to worry about expression evaluation being inconsistent between different parts of the app. The lesson is that investing time upfront in a robust, well-tested core function pays back many times over as the project grows.
+
+**2. Cross-platform architecture:**
+Building the same application for both a desktop SDL2 environment and an ESP32 embedded target taught me how to structure code to be genuinely portable. Using a Hardware Abstraction Layer (`input_hal.h`) with platform-specific implementations meant the application logic never needed to know what hardware it was running on. The practical benefit was that I could develop and test everything rapidly on desktop with full debugging tools, and then deploy to hardware without rewriting a single line of application code. This is a pattern I will use in every future embedded project.
+
+**3. Debugging and systematic iteration:**
+The nine iteration cycles documented in `iteration.md` taught me that the most effective way to debug a project is to test one thing at a time and record every finding. Several bugs in this project — the double-character insertion, the missing font glyphs, the angle mode disconnect — were non-obvious and would have been very difficult to track down without a systematic approach. Keeping a detailed log of what was built, what was tested, what broke, and exactly how it was fixed meant that when a similar bug appeared again (as it did with double-character insertion in iteration 9), I already knew the pattern to look for.
+
+**4. UI component reuse:**
+Implementing the `ui_submenu.c` component and using it across four different apps demonstrated in practice why reusable components matter. When a navigation bug was found in the submenu — for example, the ESC key not always returning to the correct parent screen — fixing it once in `ui_submenu.c` fixed it everywhere simultaneously. Had the submenu logic been duplicated across Settings, Solver, Stats, and Numerical Methods separately, the same fix would have needed to be applied four times with a risk of missing one.
+
+**5. Mathematical implementation from first principles:**
+Implementing the statistical distribution functions, the Newton-Raphson solver, Simpson's rule, and the SUVAT constraint propagator entirely in C without any mathematical library gave me a much deeper understanding of how these algorithms actually work. In particular, the Abramowitz and Stegun approximation for the error function — needed for the normal CDF because the standard library `erf()` is not reliably available on all embedded targets — required understanding both the mathematical derivation and the numerical precision limits of the approximation. This kind of from-scratch implementation is far more educational than calling a library function.
+
+**6. Client-driven development:**
+Consulting Mr Blanchard before and after development shaped the project significantly. His feedback before development gave me a clear priority order for features; his feedback after development identified gaps I had not considered, such as complex number support and step-by-step working. The lesson is that a client who is an actual domain expert — in this case someone who teaches the A-Level curriculum daily — will identify things that a developer working in isolation simply cannot anticipate.
+
 ## What Went Well in the Project
 
 Many aspects of the graphing calculator project were successful, and reflecting on the development process, several outcomes stand out as particularly strong.
