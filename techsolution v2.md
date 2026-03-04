@@ -106,7 +106,7 @@ All apps share a unified key code vocabulary. Special calculator keys are encode
 
 ## 1. button_keymap.c — 101 lines
 
-**Purpose:** Maps the 9×6 physical button matrix positions to LVGL key codes and display labels. Provides a translation layer between hardware button presses and logical key events used by the calculator applications.
+**Purpose:** Maps the 9×6 physical button matrix positions to LVGL key codes and display labels. It acts as a translation layer between the raw hardware button positions and the logical key events consumed by all calculator applications, meaning none of the app code needs to know anything about the physical layout of the keypad. The keymap is populated at startup from a hardcoded default and can optionally be overridden at runtime via the `button_keycodes.txt` config file on the desktop build. This separation makes it straightforward to remap any key without touching the application code.
 
 **Includes:** `button_keymap.h`, `string.h`
 
@@ -143,7 +143,7 @@ All apps share a unified key code vocabulary. Special calculator keys are encode
 
 ## 2. calc_math.c — 302 lines
 
-**Purpose:** Main Math Calculator application. Single-line expression input with live result preview and a circular buffer of up to 10 calculation history entries. Smart backspace deletes entire function tokens (e.g., `"sin("` as one unit).
+**Purpose:** Implements the main Math Calculator application, which is the core general-purpose calculation screen of the project. It provides a single-line expression input field with a live result preview that updates on every keystroke, so the user can see the answer as they type without having to press equals. Completed calculations are stored in a circular buffer of up to 10 history entries, displayed in two columns above the input box so the user can reference previous results at a glance. Smart backspace is also implemented, which detects when the cursor is immediately after a function token such as `"sin("` and deletes the whole token as a single unit rather than one character at a time, making editing expressions much less tedious.
 
 **Includes:** `calc_math.h`, `ui_common.h`, `expr_eval.h`, `input_hal.h`, `main_menu.h`, `settings.h`, `lvgl.h`, `stdio.h`, `string.h`, `math.h`
 
@@ -202,7 +202,7 @@ All apps share a unified key code vocabulary. Special calculator keys are encode
 
 ## 3. expr_eval.c — 350 lines
 
-**Purpose:** Recursive descent parser evaluating mathematical expressions with full BIDMAS precedence. Supports functions, constants, user variables (A–F, x, y, z), implicit multiplication, and factorial.
+**Purpose:** Implements a hand-written recursive descent parser that evaluates mathematical expressions given as strings, enforcing full BIDMAS operator precedence without relying on any external parsing library. The parser is used by every part of the application that needs to evaluate user input — the math app, the graph plotter, the Newton-Raphson solver, and the numerical integrator all call into this module. It supports the full range of mathematical constructs required by the A-Level syllabus, including trig functions, logarithms, square roots, factorial, exponentiation, the constants π and e, user-defined variables A–F and x/y/z, and implicit multiplication such as `2x` or `3sin(x)`. The implementation uses the C call stack to encode operator precedence naturally through the recursive grammar, runs in O(n) time relative to expression length, and performs no heap allocation.
 
 **Includes:** `expr_eval.h`, `settings.h`, `stdlib.h`, `string.h`, `ctype.h`, `math.h`
 
@@ -273,7 +273,7 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 
 ## 4. graph.c — 477 lines
 
-**Purpose:** Function graphing application supporting up to 4 simultaneous functions, zoom/pan controls, and a trace cursor. Two-screen: function list editor and graph canvas view.
+**Purpose:** Implements the function graphing application, which allows the user to plot up to four mathematical functions simultaneously on a full-screen canvas. The app is split into two screens — a function list editor where the user can enter and toggle equations, and a graph view where the curves are rendered with axes, a grid, and optional trace cursor. Pan and zoom are controlled entirely from the keypad, and the trace mode lets the user move a crosshair along a selected curve and read off the exact coordinates in real time. Each function is plotted in a distinct colour (green, red, blue, orange) so multiple curves can be easily distinguished, which is particularly useful when studying intersections or comparing transformations of the same function.
 
 **Includes:** `graph.h`, `ui_common.h`, `input_hal.h`, `expr_eval.h`, `main_menu.h`, `settings.h`, `lvgl.h`, `stdio.h`, `string.h`
 
@@ -356,7 +356,7 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 
 ## 5. main_menu.c — 145 lines
 
-**Purpose:** Central navigation hub. 3×2 grid of 6 app-launcher buttons with keyboard (arrow + enter) and mouse click support.
+**Purpose:** Implements the main menu, which is the central navigation hub of the calculator and the first screen the user sees on startup. It presents six coloured app tiles in a 3×2 grid, each with a distinct accent colour so the user can immediately identify each app without needing icons or lengthy labels. Navigation is handled via the arrow keys and the equals key, and the focused tile is highlighted with a white border to give clear visual feedback. Mouse clicks on the tile buttons are also supported on the desktop build, allowing the app to be used without a keyboard for testing and demonstration purposes.
 
 **Includes:** `main_menu.h`, `ui_common.h`, `input_hal.h`, `lvgl.h`, all app headers, `string.h`
 
@@ -418,7 +418,7 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 
 ## 6. mechanics.c — 287 lines
 
-**Purpose:** SUVAT kinematics solver. Given ≥ 3 of 5 values (s, u, v, a, t), iteratively solves for all 5 using all rearrangements of the SUVAT equations.
+**Purpose:** Implements the SUVAT kinematics solver, which covers the mechanics topic found in both A-Level Maths and Physics. The user enters any three or more of the five kinematic variables — displacement (s), initial velocity (u), final velocity (v), acceleration (a), and time (t) — and the solver works out all remaining unknowns. Rather than implementing a separate solver for each combination of known variables, the algorithm iteratively applies all 15 rearrangements of the four SUVAT equations in repeated passes until all five values are determined, which keeps the code compact and handles every valid input combination automatically. The result screen also displays the four SUVAT equations as a reference, which is useful for students who want to understand which equation was used to find each unknown.
 
 **Includes:** `mechanics.h`, `ui_common.h`, `input_hal.h`, `main_menu.h`, `settings.h`, `stdio.h`, `stdlib.h`, `string.h`, `math.h`, `ctype.h`
 
@@ -484,7 +484,7 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 
 ## 7. numerical_methods.c — 491 lines
 
-**Purpose:** Numerical Methods application with three tools: Curve Fitting (least-squares linear regression), Numerical Integration (Simpson's 1/3 rule), and Newton-Raphson root finding.
+**Purpose:** Implements the Numerical Methods application, which groups three distinct numerical analysis tools into a single app accessible from the main menu. The three tools are: Curve Fitting, which performs least-squares linear regression on a user-supplied dataset and reports the line of best fit along with the R² value; Numerical Integration, which evaluates a definite integral of any user-entered function using Simpson's 1/3 rule with up to 10,000 steps; and Newton-Raphson root finding, which iteratively converges on a root of f(x)=0 from a user-supplied initial guess using the central difference method to estimate the derivative. All three tools accept expressions entered via the same keypad function buttons as the rest of the calculator, so the user does not need to learn a different input system.
 
 **Includes:** `numerical_methods.h`, `ui_common.h`, `ui_submenu.h`, `input_hal.h`, `main_menu.h`, `settings.h`, `expr_eval.h`, `lvgl.h`, `stdio.h`, `stdlib.h`, `string.h`, `math.h`
 
@@ -587,7 +587,7 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 
 ## 8. settings.c — 338 lines
 
-**Purpose:** Global calculator settings — angle mode (RAD/DEG), decimal places (0–10), and 9 user variables (A–F, x, y, z). State persists across app switches in static memory.
+**Purpose:** Manages all global calculator settings and exposes them through a public API that the other application modules call into. The three configurable settings are the angle mode (RAD or DEG, which controls how trig functions in `expr_eval.c` interpret their arguments), the number of decimal places for displayed results (Auto or 1–10 fixed), and the values of the nine user-defined variables A through F and x, y, z. All state is held in static memory and persists across app switches for the duration of a session, so switching from the graph app to the math app and back does not reset the user's settings. The settings module is accessible from any screen at any time via the CONST key, without having to return to the main menu first.
 
 **Includes:** `settings.h`, `ui_common.h`, `ui_submenu.h`, `input_hal.h`, `main_menu.h`, `stdio.h`, `string.h`, `stdlib.h`
 
@@ -670,7 +670,7 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 
 ## 9. solver.c — 322 lines
 
-**Purpose:** Equation solver with Linear (ax+b=0) and Quadratic (ax²+bx+c=0) solvers using analytical methods. Submenu navigation with shared `SolverCtx` infrastructure.
+**Purpose:** Implements the equation solver application, providing analytical solvers for linear equations in the form ax+b=0 and quadratic equations in the form ax²+bx+c=0. Both solvers are built on a shared `SolverCtx` infrastructure, which stores the input field pointers and a function pointer to the appropriate solve function, allowing the same key callback to trigger the correct calculation regardless of which solver is active. The quadratic solver correctly handles all three cases — two distinct real roots, one repeated root, and no real solutions — displaying an appropriate message for each. The module uses a submenu as its entry point, which makes it straightforward to add further solver types such as simultaneous equations or cubic equations in future without restructuring the UI.
 
 **Includes:** `solver.h`, `input_hal.h`, `main_menu.h`, `settings.h`, `ui_common.h`, `ui_submenu.h`, `math.h`, `stdio.h`, `stdlib.h`, `string.h`
 
@@ -746,7 +746,7 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 
 ## 10. stats.c — 487 lines
 
-**Purpose:** Statistical distribution calculator — Binomial PMF/CDF, Normal PDF/CDF/Inverse, Poisson PMF/CDF. Seven distribution screens sharing a common 3-parameter input layout.
+**Purpose:** Implements the statistical distributions application, covering all the probability distributions required by the A-Level Maths and Further Maths syllabus. The seven available calculations are the Binomial PMF and CDF, the Normal PDF, CDF, and Inverse Normal, and the Poisson PMF and CDF. All seven share a common input layout built by a single `create_dist_screen()` function, which takes the title, parameter labels, and a calculation function pointer as arguments — this means adding a new distribution in future only requires writing the calculation function and registering it with the submenu, without duplicating any UI code. The statistical algorithm functions are all implemented from first principles in pure C, including an Abramowitz & Stegun polynomial approximation for the error function used by the normal CDF, since the standard library `erf()` is not reliably available on all embedded targets.
 
 **Includes:** `stats.h`, `ui_common.h`, `ui_submenu.h`, `input_hal.h`, `main_menu.h`, `settings.h`, `lvgl.h`, `stdio.h`, `string.h`, `stdlib.h`
 
@@ -879,7 +879,7 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 
 ## 11. ui_submenu.c — 129 lines
 
-**Purpose:** Reusable vertical list submenu component. Used by Settings, Solver, Stats, and Numerical Methods to provide consistent navigation without code duplication.
+**Purpose:** Implements a reusable vertical list submenu component that is shared across four applications — Settings, Solver, Stats, and Numerical Methods — to provide a consistent selection UI without duplicating code. Each submenu is created by passing an array of `SubMenuItem` structs (each containing a label string and a callback function pointer), a style struct specifying the accent colour and hint text, and a back-navigation callback. The component handles all the rendering, keyboard navigation, highlight updates, and memory cleanup internally, so each app only needs to define its list of items and the component does the rest. This directly demonstrates the DRY (Don't Repeat Yourself) principle, as without this component the same 100+ lines of list-building and navigation code would need to appear separately in four different source files.
 
 **Includes:** `ui_submenu.h`, `ui_common.h`, `input_hal.h`, `string.h`
 
@@ -918,7 +918,7 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 
 ## 12. desktop/src/main.c — 509 lines
 
-**Purpose:** PC application entry point. Sets up two SDL2 windows (320×240 display + 320×270 keypad panel), loads the keyboard configuration file, builds the on-screen button grid, and starts the main menu.
+**Purpose:** Implements the desktop PC entry point for the calculator, setting up the full SDL2 environment that simulates the embedded hardware on a standard Windows or Linux machine. It creates two separate SDL2 windows — a 320×240 display window that renders the calculator UI exactly as it would appear on the physical LCD, and a 320×270 keypad window that shows the 9×6 on-screen button grid which the user can click with a mouse. Both windows share the same LVGL instance, and key events from either the on-screen buttons or the physical keyboard are routed through a unified key dispatch path before being sent to the focused LVGL group. The button layout and keyboard mapping are loaded from `button_keycodes.txt` at runtime, meaning the key bindings can be changed without recompiling the application.
 
 **Includes:** LVGL, SDL2, `input_hal.h`, `button_keymap.h`, all app headers
 
@@ -1031,7 +1031,7 @@ On-screen button click
 
 ## 13. desktop/src/input_hal.c — ~20 lines
 
-**Purpose:** Desktop implementation of the input hardware abstraction layer.
+**Purpose:** Implements the desktop version of the input hardware abstraction layer defined in `input_hal.h`. It provides the three functions that the rest of the application calls to interact with input hardware — storing and retrieving the LVGL keyboard indev pointer, and acquiring/releasing an LVGL mutex lock. On the desktop build, the lock and unlock functions are no-ops since the application is single-threaded, but on the ESP32 build they wrap FreeRTOS mutex calls to make the LVGL task thread-safe. This file is the only place where the desktop and ESP32 builds differ in terms of input handling, which is the entire point of the abstraction layer.
 
 | Function | Line | Description |
 |----------|------|-------------|
