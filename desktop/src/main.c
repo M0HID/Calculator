@@ -32,6 +32,7 @@
 #include "input_hal.h"
 #include "main_menu.h"
 #include "button_keymap.h"
+#include "ui_common.h"
 
 /*********************
  *      DEFINES
@@ -173,7 +174,7 @@ static uint32_t keycode_string_to_lvgl_key(const char *keycode) {
 
   // Constants
   if (strcasecmp(keycode, "ESCAPE") == 0 || strcasecmp(keycode, "ESC") == 0)
-    return 'E'; // e constant
+    return '$'; // e constant (Euler's number)
   if (strcasecmp(keycode, "HOME") == 0)
     return 'P'; // pi
   if (strcasecmp(keycode, "END") == 0)
@@ -374,7 +375,7 @@ static void create_button_panel(lv_obj_t *parent) {
       }
 
       lv_label_set_text(label, key_text);
-      lv_obj_set_style_text_font(label, &lv_font_montserrat_12, 0);
+      lv_obj_set_style_text_font(label, &font_math_12, 0);
       lv_obj_center(label);
 
       // Add click event

@@ -2,131 +2,126 @@
 
 ## Overview
 
-This project implements a graphical scientific calculator system based on the LVGL (Light and Versatile Graphics Library) v9 framework. The calculator provides six main applications accessible through a 3x2 grid menu interface: a Mathematics calculator with expression evaluation and history, a Function Graphing application with multi-function plotting and trace mode, a Statistics calculator for probability distributions, an Equation Solver with linear, quadratic, simultaneous, and Newton-Raphson methods, a Mechanics calculator for SUVAT kinematics, and a Settings application for angle mode, decimal places, and variable management. The system is designed to run on multiple platforms including desktop (Windows/Linux/macOS) using SDL2, and embedded systems (ESP32-S3) with a physical MCP23017 I2C button matrix.
+This project implements a graphical scientific calculator system based on the LVGL (Light and Versatile Graphics Library) framework. The calculator provides six main applications accessible through a grid menu interface: a Mathematics calculator with expression evaluation and history, a Function Graphing application with multi-function plotting and trace mode, a Statistics calculator for probability distributions, a Numerical Methods solver (planned), a Mechanics calculator (planned), and a Matrices calculator (planned). The system is designed to run on multiple platforms including desktop (Windows/Linux) using SDL2, and embedded systems (ESP32) with physical button input.
 
-The architecture follows a modular design pattern where each application is self-contained and can be launched from a main menu interface. Five core applications are fully implemented (Math, Graph, Stats, Solver, Mechanics), plus a Settings utility. A centralised design system (ui_common.h) provides shared fonts, colours, layout constants, and helper functions across all applications. A reusable submenu component (ui_submenu.c) provides consistent navigation for apps with multiple modes (Solver, Stats, Settings). The expression evaluator forms the computational core, implementing a recursive descent parser to evaluate mathematical expressions with support for standard operators, functions, and variables. Input handling is abstracted through a Hardware Abstraction Layer (input_hal.h) allowing the same codebase to support both physical buttons and keyboard input across different platforms.
+The architecture follows a modular design pattern where each application is self-contained and can be launched from a main menu interface. Currently, three core applications are fully implemented: Math, Graph, and Stats. The expression evaluator forms the computational core, implementing a recursive descent parser to evaluate mathematical expressions with support for standard operators, functions, and variables. Input handling is abstracted through a Hardware Abstraction Layer (HAL) allowing the same codebase to support both physical buttons and keyboard input across different platforms.
 
 The system demonstrates key computer science concepts including parsing algorithms, event-driven programming, real-time graphics rendering, numerical computation, and cross-platform hardware abstraction.
 
 ## Structure Hierarchy Chart
 
 ```
-Main Application (desktop/src/main.c:426-503)
-├── Hardware Abstraction Layer (desktop/src/hal/hal.c)
-│   ├── SDL Display Initialization (main.c:435-446)
-│   └── Input Device Setup (main.c:438, 462-465)
+Main Application (main.c:394-469)
+├── Hardware Abstraction Layer (hal.c)
+│   ├── SDL Display Initialization (main.c:403-423)
+│   └── Input Device Setup (main.c:406-427)
 │
-├── Button Input System (main.c:296-387)
+├── Button Input System (main.c:264-355)
 │   ├── Keymap Configuration (button_keymap.c:18-92)
-│   └── Event Dispatcher (main.c:238-253, main.c:390-424)
-│
-├── UI Framework Layer
-│   ├── Design System (ui_common.h:14-122)
-│   │   ├── Fonts (font_math_14, font_math_12)
-│   │   ├── Colour Palette (ui_common.h:28-48)
-│   │   ├── Layout Constants (ui_common.h:18-25)
-│   │   └── Helper Functions (ui_common.h:54-122)
-│   │
-│   └── Reusable Components
-│       └── Submenu Component (ui_submenu.c:67-143)
-│           ├── Item Selection (ui_submenu.c:21-30)
-│           └── Key Navigation (ui_submenu.c:33-64)
+│   └── Event Dispatcher (main.c:206-221, main.c:230-262)
 │
 └── Application Layer
-    ├── Main Menu (main_menu.c:81-148)
-    │   ├── Grid Navigation (main_menu.c:33-52)
-    │   └── App Launcher (main_menu.c:41-52)
+    ├── Main Menu (main_menu.c:155-239)
+    │   ├── Grid Navigation (main_menu.c:48-90)
+    │   └── App Launcher (main_menu.c:92-108)
     │
-    ├── Math Calculator (calc_math.c:218-298)
-    │   ├── Expression Evaluator (expr_eval.c:348-365)
-    │   ├── History Management (calc_math.c:114-150)
-    │   └── Key Handler (calc_math.c:157-216)
+    ├── Math Calculator (math.c:286-374)
+    │   ├── Expression Evaluator (expr_eval.c:193-210)
+    │   ├── History Management (math.c:153-172)
+    │   └── Special Key Handler (math.c:110-151)
     │
-    ├── Graph Plotter (graph.c:525-530)
-    │   ├── Function List Screen (graph.c:403-483)
-    │   │   ├── Function Editor (graph.c:224-240)
-    │   │   └── List Navigation (graph.c:242-341)
+    ├── Graph Plotter (graph.c:630-642)
+    │   ├── Function List Screen (graph.c:488-587)
+    │   │   ├── Function Editor (graph.c:318-337)
+    │   │   └── List Navigation (graph.c:339-382)
     │   │
-    │   └── Graph View Screen (graph.c:485-523)
-    │       ├── Coordinate Transform (graph.c:74-75)
-    │       ├── Axes Renderer (graph.c:79-110)
-    │       ├── Function Plotter (graph.c:112-136)
-    │       ├── Trace Mode (graph.c:138-163)
-    │       └── Zoom/Pan Controls (graph.c:343-399)
+    │   └── Graph View Screen (graph.c:589-626)
+    │       ├── Coordinate Transform (graph.c:98-104)
+    │       ├── Axes Renderer (graph.c:108-165)
+    │       ├── Function Plotter (graph.c:167-202)
+    │       ├── Trace Mode (graph.c:204-243)
+    │       └── Zoom/Pan Controls (graph.c:384-484)
     │
-    ├── Statistics App (stats.c:416-418)
-    │   ├── Submenu (stats.c:238-249, uses ui_submenu)
-    │   ├── Distribution Screens (stats.c:254-298)
+    ├── Statistics App (stats.c:292-366)
+    │   ├── Distribution Calculator (stats.c:174-234)
     │   └── Math Functions
-    │       ├── Binomial (stats.c:71-101)
-    │       ├── Normal Distribution (stats.c:103-121)
-    │       └── Inverse Normal (stats.c:123-136)
+    │       ├── Binomial Distribution (stats.c:77-113)
+    │       ├── Normal Distribution (stats.c:115-149)
+    │       └── Inverse Normal (stats.c:163-170)
     │
-    ├── Equation Solver App (solver.c:382-384)
-    │   ├── Solver Menu (solver.c:127-146, uses ui_submenu)
-    │   ├── Linear Solver (ax+b=0) (solver.c:225-254)
-    │   ├── Quadratic Solver (ax²+bx+c=0) (solver.c:274-303)
-    │   ├── Newton-Raphson Solver (solver.c:322-359)
-    │   ├── Placeholders (solver.c:369-379)
+    ├── Solver/Numerical Methods App (solver.c:1012-1014)
+    │   ├── Solver Menu (solver.c:949-1009)
+    │   ├── Linear Solver (ax+b=0) (solver.c:293-372)
+    │   ├── Quadratic Solver (ax²+bx+c=0) (solver.c:404-492)
+    │   ├── 2×2 Simultaneous Equations (solver.c:520-596)
+    │   ├── 3×3 Simultaneous Equations (solver.c:628-723)
+    │   ├── Newton-Raphson Solver (solver.c:750-835)
+    │   ├── Numerical Methods (Placeholder) (solver.c:838-859)
+    │   ├── Curve Fitting (Placeholder) (solver.c:861-882)
+    │   ├── Function Storage (Placeholder) (solver.c:884-905)
     │   └── Math Functions
-    │       ├── Linear Equation (solver.c:60-63)
-    │       ├── Quadratic Equation (solver.c:65-72)
-    │       ├── Newton-Raphson (solver.c:47-58)
-    │       └── Numerical Derivative (solver.c:38-45)
+    │       ├── Linear Equation Solver (solver.c:108-114)
+    │       ├── Quadratic Equation Solver (solver.c:117-141)
+    │       ├── Cramer's Rule (2×2) (solver.c:146-156)
+    │       ├── Cramer's Rule (3×3) (solver.c:159-186)
+    │       ├── Newton-Raphson Method (solver.c:73-105)
+    │       ├── Numerical Derivative (solver.c:57-70)
+    │       ├── Linear Regression (solver.c:189-202)
+    │       └── Quadratic Regression (solver.c:205-242)
     │
-    ├── Mechanics App (mechanics.c:291-302)
-    │   ├── Input Page (mechanics.c:188-244)
-    │   ├── Result Page (mechanics.c:246-289)
+    ├── Mechanics App (mechanics.c:381-401)
+    │   ├── Input Page (mechanics.c:231-314)
+    │   ├── Result Page (mechanics.c:316-379)
     │   └── SUVAT Solver
-    │       ├── Value Accessors (mechanics.c:31-47)
-    │       └── Iterative Solver (mechanics.c:49-93)
+    │       ├── Equation System (mechanics.c:9-14)
+    │       ├── Value Management (mechanics.c:49-69)
+    │       ├── Known Value Counter (mechanics.c:72-80)
+    │       └── Iterative Equation Solver (mechanics.c:83-167)
     │
-    └── Settings App (settings.c:357-359)
-        ├── Settings Menu (settings.c:348-355, uses ui_submenu)
-        ├── Angle Mode Page (settings.c:88-135)
-        ├── Decimal Places Page (settings.c:179-233)
-        └── Variable Editor Page (settings.c:294-336)
+    └── Matrices App (Planned - main_menu.c:106)
+        ├── Matrix Operations (Add, Multiply, Transpose)
+        ├── Determinant Calculator
+        └── Matrix Inversion
 ```
 
 ## System Flowchart
 
 ```
-[START] → [Initialize LVGL] (main.c:430)
+[START] → [Initialize LVGL] (main.c:399)
               ↓
-    [Create Displays] (main.c:435-446)
+    [Create Displays] (main.c:403-419)
     (Main: 320×240, Keypad: 320×270)
               ↓
-    [Load Button Keymap] (main.c:462-465)
+    [Load Button Keymap] (main.c:430-433)
               ↓
-    [Show Main Menu] (main.c:486)
+    [Show Main Menu] (main.c:452)
               ↓
     ┌─────────────────────────────────────┐
     │   Main Menu Screen (3×2 Grid)       │
-    │   (main_menu.c:81-148)              │
+    │   (main_menu.c:155)                 │
     └─────────────────────────────────────┘
               ↓
     User Selects App (Arrow Keys + Enter)
               ↓
     ┌─────────┬──────────┬──────────┬──────────┬──────────┬──────────┐
     │         │          │          │          │          │          │
-  [Math]   [Graph]   [Stats]   [Solver]  [Mechanics] [Settings]
-  Button0   Button1   Button2   Button3    Button4     Button5
+  [Math]   [Graph]   [Stats]  [Numerical] [Mechanics] [Matrices]
+  Button0   Button1   Button2   Button3      Button4     Button5
     │         │          │          │          │          │
     ↓         ↓          ↓          ↓          ↓          ↓
-┌─────────┐┌────────┐┌────────┐┌──────────┐┌──────────┐┌──────────┐
-│  Math   ││ Graph  ││ Stats  ││  Solver  ││Mechanics ││ Settings │
-│  App    ││  App   ││  App   ││   App    ││   App    ││   App    │
-│(calc_   ││(graph.c││(stats.c││(solver.c)││(mechanics││(settings │
-│math.c:  ││:525-530││:416-418││:382-384) ││.c:291-302││.c:357-359│
-│218-298) ││        ││        ││          ││          ││          │
-└─────────┘└────────┘└────────┘└──────────┘└──────────┘└──────────┘
-    │         │          │          │          │          │
-    ↓         ↓          ↓          ↓          ↓          ↓
-    │         │          │          │          │          │
-    │         │          │          │          │  [Key Event Handler]
-    │         │          │          │          │  (Waits for button/keyboard input)
+┌────────┐┌────────┐┌────────┐┌──────────┐┌──────────┐┌──────────┐
+│ Math   ││ Graph  ││ Stats  ││ Solver/  ││Mechanics ││ Matrices │
+│  App   ││  App   ││  App   ││Numerical ││   App    ││   App    │
+│(math.c)││(graph.c││(stats.c││(solver.c)││(mechanics││(Planned) │
+│:286-374││:630-642││:292-366││:1012-1014││.c:381-401││          │
+└────────┘└────────┘└────────┘└──────────┘└──────────┘└──────────┘
     │         │          │          │          │
     ↓         ↓          ↓          ↓          ↓
+    │         │          │          │          │
+    │         │          │  [Key Event Handler]
+    │         │          │  (Waits for button/keyboard input)
+    │         │          │
+    ↓         ↓          ↓
 ┌────────────────────────────────────────┐
 │        Key Event Routing               │
 │  - Number/Operator Keys                │
@@ -140,14 +135,14 @@ Main Application (desktop/src/main.c:426-503)
 ┌───────────┐ │          │
 │ Math App  │ │          │
 │ Key Event │ │          │
-│(calc_math.│ │          │
-│c:157-216) │ │          │
+│(math.c:   │ │          │
+│ 207-284)  │ │          │
 └───────────┘ │          │
     ↓         │          │
 ┌───────────┐ │          │
 │Parse Input│ │          │
 │(expr_eval.│ │          │
-│c:348-365) │ │          │
+│c:193-210) │ │          │
 └───────────┘ │          │
     ↓         │          │
 ┌───────────┐ │          │
@@ -162,16 +157,16 @@ Main Application (desktop/src/main.c:426-503)
 │Result +   │ │          │
 │Add to     │ │          │
 │History    │ │          │
-│(calc_math.│ │          │
-│c:114-150) │ │          │
+│(math.c:   │ │          │
+│ 153-172)  │ │          │
 └───────────┘ │          │
     │         │          │
     │    ┌────────────┐  │
     │    │ Graph App  │  │
     │    │ Key Event  │  │
     │    │(graph.c:   │  │
-    │    │ 242-341,   │  │
-    │    │  343-399)  │  │
+    │    │ 339-382,   │  │
+    │    │  384-484)  │  │
     │    └────────────┘  │
     │         ↓          │
     │    ┌────────────┐  │
@@ -192,7 +187,7 @@ Main Application (desktop/src/main.c:426-503)
     │    │  Functions │  │
     │    │- Draw Trace│  │
     │    │(graph.c:   │  │
-    │    │ 165-170)   │  │
+    │    │ 245-252)   │  │
     │    └────────────┘  │
     │         ↓          │
     │    ┌────────────┐  │
@@ -204,7 +199,7 @@ Main Application (desktop/src/main.c:426-503)
     │    │  coords    │  │
     │    │- Draw lines│  │
     │    │(graph.c:   │  │
-    │    │ 112-136)   │  │
+    │    │ 167-202)   │  │
     │    └────────────┘  │
     │         ↓          │
     │    ┌────────────┐  │
@@ -215,10 +210,9 @@ Main Application (desktop/src/main.c:426-503)
     │         │          │
     │         │     ┌────────────┐
     │         │     │ Stats App  │
-    │         │     │ Submenu or │
-    │         │     │Dist Screen │
+    │         │     │ Key Event  │
     │         │     │(stats.c:   │
-    │         │     │ 238-298)   │
+    │         │     │  244-290)  │
     │         │     └────────────┘
     │         │          ↓
     │         │     ┌────────────┐
@@ -227,7 +221,16 @@ Main Application (desktop/src/main.c:426-503)
     │         │     │  or        │
     │         │     │- x, μ, σ   │
     │         │     │(stats.c:   │
-    │         │     │ 194-224)   │
+    │         │     │  185-193)  │
+    │         │     └────────────┘
+    │         │          ↓
+    │         │     ┌────────────┐
+    │         │     │Select Dist:│
+    │         │     │- Binomial  │
+    │         │     │- Normal    │
+    │         │     │- Inverse   │
+    │         │     │(stats.c:   │
+    │         │     │  197-220)  │
     │         │     └────────────┘
     │         │          ↓
     │         │     ┌────────────┐
@@ -235,17 +238,18 @@ Main Application (desktop/src/main.c:426-503)
     │         │     │Result using│
     │         │     │Math Funcs  │
     │         │     │(stats.c:   │
-    │         │     │  71-136)   │
+    │         │     │  67-170)   │
     │         │     └────────────┘
     │         │          ↓
     │         │     ┌────────────┐
     │         │     │Format &    │
     │         │     │Display     │
     │         │     │Result      │
+    │         │     │(stats.c:   │
+    │         │     │  222-233)  │
     │         │     └────────────┘
     │         │          │
-    └─────────┴──────────┴─────[Continue with Solver, Mechanics, Settings flows]
-              ↓                 ↓
+    └─────────┴──────────┘
               ↓
     ┌─────────────────┐
     │ Check for MENU  │
@@ -261,14 +265,14 @@ Main Application (desktop/src/main.c:426-503)
 [Return to      [Continue in
  Main Menu]      Current App]
  (main_menu.         │
-  c:81-148)          │
+  c:155)             │
         │            │
         └────────────┘
               ↓
     ┌─────────────────────────┐
     │   Main Event Loop       │
     │   lv_timer_handler()    │
-    │   (main.c:488-500)      │
+    │   (main.c:454-466)      │
     │   - Updates displays    │
     │   - Processes input     │
     │   - Manages animations  │
@@ -277,101 +281,6 @@ Main Application (desktop/src/main.c:426-503)
          [Loop Forever]
               │
               └──────→ Back to Event Handler
-```
-
-## Additional App Flows (Solver, Mechanics, Settings)
-
-### Solver App Flow
-
-```
-[Solver App Start] (solver.c:382-384)
-       ↓
-[Show Solver Menu] (solver.c:127-146, uses ui_submenu)
-       ↓
-    User selects solver type ↓
-    ┌──────┬──────┬──────┬──────┐
-    │      │      │      │      │
- Linear  Quad  Newton  Placeholders
- solver  solver Raphson
-    │      │      │      
-    ↓      ↓      ↓      
-[Show Input Screen with coefficient/equation fields]
-(solver.c:225-254, 274-303, 322-359)
-    ↓
-[User enters values, presses solve button]
-    ↓
-[Call appropriate solve function]
-(solver.c:60-63 linear, 65-72 quad, 47-58 newton)
-    ↓
-[Display solution in result label]
-    ↓
-[Back] → Solver Menu  [Menu] → Main Menu
-```
-
-### Mechanics (SUVAT) App Flow
-
-```
-[Mechanics App Start] (mechanics.c:291-302)
-       ↓
-[Show Input Page] (mechanics.c:188-244)
-  5 text fields: s, u, v, a, t
-       ↓
-[User enters ≥ 3 values, presses Calculate]
-       ↓
-[Validate: count known values] (mechanics.c:39-47)
-       ↓
-   ┌────┴────┐
-   │         │
- < 3?      ≥ 3?
-   │         │
-   ↓         ↓
-[Error]  [Solve SUVAT] (mechanics.c:49-93)
-Dialog   Iteratively apply equations
-   │         │
-   │         ↓
-   │    [All 5 values solved?]
-   │         │
-   │     Yes │
-   │         ↓
-   │    [Show Result Page] (mechanics.c:246-289)
-   │    Display all 5 values + equation reference
-   │         │
-   │         ↓
-   │    [Back] → Input Page (values preserved)
-   │    [Menu] → Main Menu (values reset)
-   │         │
-   └─────────┘
-```
-
-### Settings App Flow
-
-```
-[Settings App Start] (settings.c:357-359)
-       ↓
-[Show Settings Menu] (settings.c:348-355, uses ui_submenu)
-  - Angle Mode
-  - Decimal Places
-  - Variables
-       ↓
-    User selects setting type ↓
-    ┌──────┬──────┬──────┐
-    │      │      │      │
-  Angle   Dec   Variables
-  Mode   Places
-    │      │      │
-    ↓      ↓      ↓
-[Angle Page]      [Dec Page]        [Var Page]
-(88-135)          (179-233)         (294-336)
-Up/Down toggle    Up/Down select    Edit A-F values
-RAD/DEG           0-10 places       with textarea
-    │      │      │
-    └──────┴──────┘
-         ↓
-[Values saved in static vars]
-(settings.c:14-16)
-         ↓
-['M' key] → Return to Settings Menu
-          → Return to Main Menu
 ```
 
 ## Data Flow Diagram
@@ -387,35 +296,35 @@ RAD/DEG           0-10 places       with textarea
     └──────────────┴───────────────────────┘
                    ↓
          ┌──────────────────┐
-         │  Keymap Decoder  │ (main.c:157-235, button_keymap.c:96-112)
+         │  Keymap Decoder  │ (main.c:157-203, button_keymap.c:96-112)
          └──────────────────┘
                    ↓
          ┌──────────────────┐
-         │ Event Dispatcher │ (main.c:238-253)
+         │ Event Dispatcher │ (main.c:206-221)
          └──────────────────┘
                    ↓
          ┌──────────────────┐
-         │  LVGL Group      │ (per-app group with get_navigation_indev)
+         │  LVGL Group      │ (main_menu.c:182-188)
          │  Key Routing     │
          └──────────────────┘
                    ↓
-    ┌──────────────┼──────────────┬──────────────┬──────────────┐
-    ↓              ↓              ↓              ↓              ↓
-┌────────┐   ┌──────────┐   ┌────────┐   ┌────────┐   ┌────────┐
-│  Math  │   │  Graph   │   │ Stats  │   │ Solver │   │Mechanic│
-│  App   │   │   App    │   │  App   │   │  App   │   │s & Set │
-└────────┘   └──────────┘   └────────┘   └────────┘   └────────┘
-    │              │              │              │              │
-    ↓              ↓              ↓              ↓              ↓
+    ┌──────────────┼──────────────┐
+    ↓              ↓              ↓
+┌────────┐   ┌──────────┐   ┌────────┐
+│  Math  │   │  Graph   │   │ Stats  │
+│  App   │   │   App    │   │  App   │
+└────────┘   └──────────┘   └────────┘
+    │              │              │
+    ↓              ↓              ↓
 
 ─────────── MATH APP DATA FLOW ────────────
 
-User Input → [Text Buffer] (calc_math.c:218-298)
+User Input → [Text Buffer] (math.c:47,69-72)
                    ↓
           [Expression String]
                    ↓
          ┌──────────────────┐
-         │ Expression Parser│ (expr_eval.c:79-346)
+         │ Expression Parser│ (expr_eval.c:35-191)
          │ (Recursive       │
          │  Descent)        │
          └──────────────────┘
@@ -424,26 +333,26 @@ User Input → [Text Buffer] (calc_math.c:218-298)
     ↓              ↓              ↓
 [Tokenizer]  [Operator    [Function
 (expr_eval.  Precedence]   Evaluator]
-c:40-59)     (expr_eval.   (expr_eval.
-             c:240-346)    c:79-238)
+c:35-60)     (expr_eval.   (expr_eval.
+             c:143-191)    c:64-141)
                    ↓
           [Numeric Result]
                    ↓
          ┌──────────────────┐
-         │ History Storage  │ (calc_math.c:14-17, 114-150)
+         │ History Storage  │ (math.c:16-19, 153-172)
          │ (Circular Buffer)│
          └──────────────────┘
                    ↓
-         [Display Update] (calc_math.c:44-62)
+         [Display Update] (math.c:46-67)
 
 ─────────── GRAPH APP DATA FLOW ───────────
 
-Function Input → [Function Array] (graph.c:31-33)
+Function Input → [Function Array] (graph.c:40-50)
                        ↓
               [Graph View Request]
                        ↓
          ┌──────────────────────────┐
-         │  Canvas Rendering Loop   │ (graph.c:165-170)
+         │  Canvas Rendering Loop   │ (graph.c:245-252)
          └──────────────────────────┘
                        ↓
     ┌──────────────────┼──────────────────┐
@@ -451,13 +360,13 @@ Function Input → [Function Array] (graph.c:31-33)
 [Coordinate      [Expression         [Grid/Axes
 Transform]       Evaluation]         Drawing]
 (graph.c:        (expr_eval.c:       (graph.c:
-74-75)           348-365)            79-110)
+98-104)          202-210)            108-165)
     ↓                  ↓                  ↓
 [Canvas X,Y]     [Y Values]         [Line Objects]
     │                  │                  │
     └──────────────────┴──────────────────┘
                        ↓
-              [Draw Function Path] (graph.c:112-136)
+              [Draw Function Path] (graph.c:167-202)
                        ↓
          ┌──────────────────────────┐
          │   Frame Buffer (LVGL)    │
@@ -467,62 +376,63 @@ Transform]       Evaluation]         Drawing]
 
 ──────────── STATS APP DATA FLOW ──────────
 
-Parameter Input → [Submenu Selection] (stats.c:238-249)
+Parameter Input → [Parameter Array] (stats.c:49-50, 185-193)
                        ↓
-              [Show Distribution Screen] (stats.c:254-298)
+              [Calculate Request]
                        ↓
-              [Parameter Textareas] (stats.c:194-224)
-                       ↓
-              [Calculate Callback]
+         ┌──────────────────────────┐
+         │ Distribution Type Router │ (stats.c:197-220)
+         └──────────────────────────┘
                        ↓
     ┌──────────────────┼──────────────────┐
     ↓                  ↓                  ↓
 [Binomial PMF]   [Normal PDF/CDF]   [Inverse Normal]
 (stats.c:        (stats.c:          (stats.c:
-87-121)          103-121)           123-136)
+93-99)           116-149)           164-170)
     │                  │                  │
     └──────────────────┴──────────────────┘
                        ↓
          [Statistical Result Value]
                        ↓
-         [Format & Display in result label]
+         [Format & Display] (stats.c:222-233)
 
 ──────────── SOLVER APP DATA FLOW ──────────
 
-Solver Menu → [Submenu Selection] (solver.c:127-146, uses ui_submenu)
+Solver Menu → [Mode Selection] (solver.c:949-1009)
                       ↓
-    ┌─────────────────┼──────────────────┐
-    ↓                 ↓                  ↓
-[Linear]        [Quadratic]        [Newton-Raphson]
-solver.c:       solver.c:          solver.c:
-225-254         274-303            322-359
-    │                 │                  │
-    ↓                 ↓                  ↓
-[Read Coeffs]   [Read Coeffs]    [Read Expr + x0]
-a, b            a, b, c          equation, initial guess
-    │                 │                  │
-    ↓                 ↓                  ↓
-[Linear Solve]  [Quadratic       [Newton-Raphson]
-solver.c:       Solve]           solver.c:
-60-63           solver.c:        47-58
-x = -b/a        65-72            Iterative with
-                discriminant     numerical derivative
-    │                 │                  │
-    └─────────────────┴──────────────────┘
+    ┌─────────────────┼──────────────────┬──────────────┐
+    ↓                 ↓                  ↓              ↓
+[Linear]        [Quadratic]        [2×2 Simul]   [3×3 Simul]
+solver.c:       solver.c:          solver.c:      solver.c:
+293-372         404-492            520-596        628-723
+    │                 │                  │              │
+    ↓                 ↓                  ↓              ↓
+[Read Coeffs]   [Read Coeffs]    [Read Coeffs]  [Read Coeffs]
+a, b            a, b, c          a1,b1,c1       a[3][3]
+                                 a2,b2,c2       b[3]
+    │                 │                  │              │
+    ↓                 ↓                  ↓              ↓
+[Linear Solve]  [Quadratic       [Cramer's 2×2] [Cramer's 3×3]
+solver.c:       Formula]         solver.c:      solver.c:
+108-114         solver.c:        146-156        159-186
+x = -b/a        117-141          det, det_x,    4 determinants
+                discriminant     det_y
+    │                 │                  │              │
+    └─────────────────┴──────────────────┴──────────────┘
                        ↓
               [Solution Values]
-              x, (x1, x2), (iterations)
+              x, (y), (z)
                        ↓
-              [Format & Display in result label]
+              [Format & Display]
 
 
-Newton-Raphson Detail:
-User Input → [Function Expression + x0] (solver.c:322-359)
+Newton-Raphson Path:
+User Input → [Function Expression + x0] (solver.c:750-835)
                        ↓
             [Initialize: x = x0]
                        ↓
           ┌────────────────────────┐
-          │  Iteration Loop        │ (solver.c:47-58)
+          │  Iteration Loop        │ (solver.c:77-99)
           │  (MAX_ITER = 100)      │
           └────────────────────────┘
                        ↓
@@ -530,7 +440,7 @@ User Input → [Function Expression + x0] (solver.c:322-359)
      ↓                 ↓                 ↓
 [Evaluate f(x)]  [Numerical      [Check Convergence]
 expr_eval.c:     Derivative]     |f(x)| < 1e-8?
-348-365          solver.c:38-45
+202-210          solver.c:57-70
                  f'(x) ≈ (f(x+h)-f(x-h))/2h
      │                 │                 │
      └─────────────────┴─────────────────┘

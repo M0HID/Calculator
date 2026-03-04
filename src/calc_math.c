@@ -100,10 +100,10 @@ static void handle_custom_key(uint32_t key) {
     case 'L': insert_text_at_cursor("log(");  break;
     case 'N': insert_text_at_cursor(last_answer); break;
     case 'P': insert_text_at_cursor("pi");    break;
-    case 'E': insert_text_at_cursor("e");     break;
+    case '$': insert_text_at_cursor("e");     break;
     case 'V': insert_text_at_cursor("x");     break;
-    case 'W': insert_text_at_cursor("^2");    break;
-    case 'X': insert_text_at_cursor("^");     break;
+    case 'W': insert_text_at_cursor("^2");    break;  /* x^2 button */
+    case 'X': insert_text_at_cursor("^");     break;  /* ^ button */
     case LV_KEY_BACKSPACE: delete_function_at_cursor(); break;
     default:
       lv_group_send_data(calc_group, key);
@@ -185,20 +185,20 @@ static void math_key_cb(lv_event_t *e) {
     main_menu_create();
     return;
   case 's': case 'c': case 't': case 'r': case 'l': case 'L':
-  case 'N': case 'P': case 'E': case 'V': case 'W': case 'X':
+  case 'N': case 'P': case '$': case 'V': case 'W': case 'X':
     handle_custom_key(key);
     return;
-  case 'x':
+  case 'x':  /* literal x key on ESP32 keypad */
     insert_text_at_cursor("x");
     return;
   case 'A': insert_text_at_cursor("A"); return;
   case 'B': insert_text_at_cursor("B"); return;
   case 'C': insert_text_at_cursor("C"); return;
   case 'D': insert_text_at_cursor("D"); return;
+  case 'E': insert_text_at_cursor("E"); return;
   case 'F': insert_text_at_cursor("F"); return;
   case 'y': insert_text_at_cursor("y"); return;
   case 'z': insert_text_at_cursor("z"); return;
-  case 'e': insert_text_at_cursor("E"); return;
   case 'K': settings_app_start(); return;
   case 'G': case 'Q': case 'f':
   case 'S': case 'O':
@@ -213,6 +213,7 @@ static void math_key_cb(lv_event_t *e) {
     lv_textarea_cursor_right(input_textarea);
     return;
   default:
+    /* Only insert digits, operators, decimal, parentheses */
     if ((key >= '0' && key <= '9') || key == '+' || key == '-' ||
         key == '*' || key == '/' || key == '.' || key == '(' ||
         key == ')' || key == '^' || key == '!') {
@@ -232,6 +233,7 @@ void math_app_start(void) {
   history_count = 0;
   selected_line = -1;
 
+  /* History container – fills upper area */
   history_container = lv_obj_create(scr);
   lv_obj_set_size(history_container, LCD_H_RES - 8, 140);
   lv_obj_set_pos(history_container, 4, CONTENT_TOP);
@@ -270,6 +272,7 @@ void math_app_start(void) {
     lv_obj_add_flag(history_labels[i][1], LV_OBJ_FLAG_HIDDEN);
   }
 
+  /* Live result preview */
   current_result_label = lv_label_create(scr);
   lv_label_set_text(current_result_label, "");
   lv_obj_set_pos(current_result_label, 8, 148);
@@ -278,6 +281,7 @@ void math_app_start(void) {
   lv_obj_set_style_text_color(current_result_label, COL_RESULT, 0);
   lv_obj_set_style_text_font(current_result_label, FONT_PRIMARY, 0);
 
+  /* Input textarea */
   input_textarea = lv_textarea_create(scr);
   lv_obj_set_size(input_textarea, LCD_H_RES - 12, 34);
   lv_obj_set_pos(input_textarea, 6, 172);
@@ -286,6 +290,7 @@ void math_app_start(void) {
   ui_style_textarea(input_textarea, COL_ACCENT_MATH, COL_FOCUS_BG_MATH);
   lv_obj_add_event_cb(input_textarea, textarea_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
+  /* Key receiver */
   key_receiver = lv_obj_create(scr);
   lv_obj_set_size(key_receiver, 0, 0);
   lv_obj_add_flag(key_receiver, LV_OBJ_FLAG_HIDDEN);
@@ -298,5 +303,6 @@ void math_app_start(void) {
   if (indev) lv_indev_set_group(indev, calc_group);
   lv_group_focus_obj(key_receiver);
 
+  /* Hint bar */
   hint_lbl = ui_create_hint_bar(scr, "[=] Enter  [AC] Clear  [M] Menu");
 }

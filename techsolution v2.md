@@ -124,20 +124,20 @@ All apps share a unified key code vocabulary. Special calculator keys are encode
 **Lines 16–81: `load_default_keymap()`**
 - Arguments: None
 - Returns: void
-- Purpose: Populates all 54 keymap entries. Row 0: SHIFT (`'S'`), ALPHA (`'A'`), LEFT, UP, MENU (`'M'`), ON (`'O'`). Row 1: VAR (`'V'`), CALC (`'G'`), DOWN, RIGHT, CONST (`'K'`), EXP (`'Q'`). Row 2: FRAC (`'f'`), sqrt (`'r'`), x² (`'W'`), ^ (`'X'`), log (`'L'`), ln (`'l'`). Row 3: `!`, `(`, `)`, sin (`'s'`), cos (`'c'`), tan (`'t'`). Row 4: A–F (literal `'A'`–`'F'`). Row 5: x (`'x'`), 7–9, DEL (`LV_KEY_BACKSPACE`), AC (`LV_KEY_ESC`). Row 6: y (`'y'`), 4–6, `*`, `/`. Row 7: z (`'z'`), 1–3, `+`, `-`. Row 8: e const (`'E'`), 0, `.`, π (`'P'`), Ans (`'N'`), = (`LV_KEY_ENTER`).
+- Purpose: Populates all 54 keymap entries with their row, column, LVGL key code, and display label. Covers all 9 rows of the physical button grid, mapping everything from digits and operators to special keys like sin, sqrt, π, and Ans.
 
-**Line 83: `button_keymap_init()`**
+<!-- **Line 83: `button_keymap_init()`**
 - Arguments: None
 - Returns: void
-- Purpose: Public API; calls `load_default_keymap()`
+- Purpose: Public API; calls `load_default_keymap()` -->
 
 **Lines 85–92: `button_keymap_get_key(int row, int col)`**
 - Returns: `uint32_t` LVGL key code, or 0 if unmapped
-- Purpose: Linear scan of keymap; returns key code for given row/col
+- Purpose: Scans the keymap and returns the LVGL key code for the given row and column. Returns 0 if no entry matches.
 
 **Lines 94–101: `button_keymap_get_label(int row, int col)`**
 - Returns: `const char*` label, or NULL if unmapped
-- Purpose: Linear scan; returns display label (e.g., `"sin"`, `"\xCF\x80"` for π)
+- Purpose: Scans the keymap and returns the display label for the given row and column. This label is used in the virtual keypad to show the user what each button does.
 
 ---
 
@@ -168,62 +168,35 @@ All apps share a unified key code vocabulary. Special calculator keys are encode
 **Lines 45–62: `calculate_and_show_result()`**
 - Arguments: None (reads from `input_textarea`)
 - Returns: void
-- Purpose: Calls `eval_expression()`, formats result. Values below 1e-10 snap to 0. Formats as "Error", "Infinity", `"%.0f"` for integers, or `"%.6g"` for decimals. Updates `current_result_label`.
+- Purpose: Calls `eval_expression()` on the text in the textarea and formats the result. Values below 1e-10 snap to 0 to avoid floating point noise. Displays "Error" or "Infinity" where appropriate, otherwise formats as an integer or to 6 significant figures.
 
-**Lines 65–68: `insert_text_at_cursor(const char *text)`**
-- Purpose: Calls `lv_textarea_add_text()` then `calculate_and_show_result()`
+<!-- **Lines 65–68: `insert_text_at_cursor(const char *text)`**
+- Purpose: Calls `lv_textarea_add_text()` then `calculate_and_show_result()` -->
 
 **Lines 70–82: `check_function_at_cursor()`**
 - Returns: int — length of the function token if the cursor is directly after one, else 0
-- Purpose: Enables smart backspace — detects whether the preceding text ends with a known function name
+- Purpose: Checks whether the text immediately before the cursor ends with a known function name like `sin(` or `sqrt(`. Used to enable smart backspace so the whole token is deleted at once rather than one character at a time.
 
 **Lines 83–91: `delete_function_at_cursor()`**
-- Purpose: If `check_function_at_cursor()` > 0, deletes that many characters at once; otherwise deletes one character. Then calls `calculate_and_show_result()`
+- Purpose: If the cursor is directly after a function token, deletes the whole token at once. Otherwise deletes a single character. Calls `calculate_and_show_result()` afterwards to keep the live preview up to date.
 
 **Lines 93–113: `handle_custom_key(uint32_t key)`**
-- Purpose: Maps special key codes to multi-character insertions. Handled cases:
-
-| Key | Action |
-|-----|--------|
-| `'s'` | insert `"sin("` |
-| `'c'` | insert `"cos("` |
-| `'t'` | insert `"tan("` |
-| `'r'` | insert `"sqrt("` |
-| `'l'` | insert `"ln("` |
-| `'L'` | insert `"log("` |
-| `'N'` | insert `last_answer` |
-| `'P'` | insert `"pi"` |
-| `'E'` | insert `"e"` |
-| `'V'` | insert `"x"` |
-| `'W'` | insert `"^2"` |
-| `'X'` | insert `"^"` |
-| `LV_KEY_BACKSPACE` | `delete_function_at_cursor()` |
-| default | `lv_group_send_data(calc_group, key)` — passes character to textarea |
+- Purpose: Maps special key codes to multi-character insertions. For example, `'s'` inserts `"sin("`, `'r'` inserts `"sqrt("`, and `'N'` inserts the last answer. Passes any unrecognised key through to the textarea directly.
 
 **Lines 115–128: `add_to_history(const char *equation, const char *result)`**
-- Purpose: Appends to circular buffer. If full (10 entries), shifts all entries down by one (discarding oldest). Updates `last_answer`, increments `history_count`, calls `update_history_display()`
+- Purpose: Implements a FIFO circular buffer of up to 10 equations. If the buffer is full, it shifts all entries down by one and discards the oldest. Also updates `last_answer` so it can be recalled with the Ans key.
 
 **Lines 130–151: `update_history_display()`**
-- Purpose: Iterates all 10 label slots, shows/hides based on `history_count`. Highlights the `selected_line` row with `COL_FOCUS_BG_MATH`, others transparent.
+- Purpose: Refreshes all 10 history label slots, showing or hiding them based on how many entries are stored. Highlights the currently selected row and sets all others to a transparent background.
 
-**Lines 153–156: `textarea_event_cb(lv_event_t *e)`**
-- Purpose: Fires on `LV_EVENT_VALUE_CHANGED`; calls `calculate_and_show_result()`
+<!-- **Lines 153–156: `textarea_event_cb(lv_event_t *e)`**
+- Purpose: Fires on `LV_EVENT_VALUE_CHANGED`; calls `calculate_and_show_result()` -->
 
 **Lines 158–225: `math_key_cb(lv_event_t *e)`**
-- Purpose: Main keyboard event handler. Attached to `key_receiver`.
-- ENTER: saves equation + result to history if textarea non-empty, then clears textarea
-- UP/DOWN: navigate history selection (`selected_line ±1`)
-- ESC: clears textarea and resets history selection
-- `'M'`: `main_menu_create()`
-- `'K'`: `settings_app_start()`
-- `'s','c','t','r','l','L','N','P','E','V','W','X'`: `handle_custom_key()`
-- `'x'`: inserts `"x"` directly
-- `'A'`–`'F'`, `'y'`, `'z'`, `'e'`: inserts variable letter
-- BACKSPACE: `delete_function_at_cursor()`
-- Digits, operators: insert single character
+- Purpose: Main keyboard event handler for the calculator. Enter saves the current equation to history and clears the textarea. Up and down navigate the history selection. ESC clears the input. Function keys like `'s'` and `'r'` are forwarded to `handle_custom_key()`, and digits and operators are inserted directly into the textarea.
 
 **Lines 227–301: `math_app_start()`**
-- Purpose: Creates full calculator UI. History container at (4, CONTENT_TOP), 10 history rows with equation + result labels. Live result label at (8, 148). Input textarea at (6, 172), size (LCD_H_RES−12) × 34, one-line. Creates `key_receiver`, `calc_group`, focuses key receiver. Hint bar.
+- Purpose: Creates the full calculator UI, including the history container with 10 rows, the live result label, and the input textarea. Sets up the key receiver and focus group, then adds a hint bar at the bottom of the screen.
 
 ---
 
@@ -265,38 +238,36 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 
 ### Functions
 
-**Lines 31–36: `skip_whitespace(Parser *p)`**
-- Purpose: Advances `p->pos` past spaces and tabs
+<!-- **Lines 31–36: `skip_whitespace(Parser *p)`**
+- Purpose: Advances `p->pos` past spaces and tabs -->
 
 **Lines 37–54: `parse_number(Parser *p)`**
 - Returns: double
-- Purpose: Reads optional sign, integer digits, optional decimal point. Copies to 64-byte buffer and calls `atof()`
+- Purpose: Reads a numeric literal from the current parser position, including an optional decimal point, and converts it to a double using `atof()`.
 
 **Lines 56–68: `factorial(double n)`**
 - Returns: double
-- Purpose: Returns NAN for n < 0 or non-integer n, INFINITY for n > 170, otherwise iterates i = 2..n multiplying. Used for the postfix `!` operator in `parse_term`
+- Purpose: Computes n! for the postfix `!` operator. Returns NAN for negative or non-integer values, and INFINITY if n exceeds 170 to avoid overflow.
 
 **Lines 70–235: `parse_factor(Parser *p)`**
 - Returns: double
-- Purpose: Handles the highest-precedence tokens
-- Details: Unary `-` / `+` (recursive call), parenthesised expression `(...)`, variable `x`/`X` → `current_x_value`, `y`/`Y` → `settings_get_variable(7)`, `z`/`Z` → `settings_get_variable(8)`, `A`–`F` → `settings_get_variable(0–5)`, constant `pi`, constant `e` (when not followed by alpha), functions `sqrt`, `floor`, `ceil`, `abs`, `sin`, `cos`, `tan`, `ln`, `log` (each parses a parenthesised argument; trig functions apply degree→radian conversion if `settings_get_angle_mode() == ANGLE_DEG`). Unknown alpha sequences return NAN.
+- Purpose: Part of the recursive descent parser, handling the highest precedence tokens. Resolves brackets, unary minus, variables (x, y, z, A–F), constants (pi, e), and functions such as sin, cos, tan, sqrt, and log. Applies degree-to-radian conversion for trig functions if the angle mode is set to DEG. Returns NAN for unrecognised identifiers.
 
 **Lines 237–308: `parse_term(Parser *p)`**
 - Returns: double
-- Purpose: Handles multiplication-level operators
-- Details: Calls `parse_factor()`, checks for postfix `!`. Then loops detecting implicit multiplication (when next char is `(`, `x`, `X`, `A`–`F`, `pi`, `e`, or a known function name) and explicit `*`, `/`, `^`. Division by zero returns NAN.
+- Purpose: Part of the recursive descent parser, handling multiplication-level operations. Calls `parse_factor()`, then checks for the postfix `!` operator, implicit multiplication (e.g. `2x` or `3sin(x)`), and explicit `*`, `/`, and `^` operators. Returns NAN on division by zero.
 
 **Lines 310–329: `parse_expression(Parser *p)`**
 - Returns: double
-- Purpose: Handles `+` and `-` (lowest precedence). Calls `parse_term()`, loops for multiple operators.
+- Purpose: Part of the recursive descent parser, handling the lowest precedence operators `+` and `-`. Calls `parse_term()` and loops to handle chains of addition and subtraction.
 
-**Lines 331–340: `eval_expression(const char *expr)`**
+<!-- **Lines 331–340: `eval_expression(const char *expr)`**
 - Returns: double
 - Purpose: Public API. Sets `current_x_value` from `settings_get_variable(6)` (the stored x variable), then parses.
 
 **Lines 342–349: `eval_expression_x(const char *expr, double x_val)`**
 - Returns: double
-- Purpose: Public API for graphing and numerical integration. Sets `current_x_value = x_val`, then parses. Used by `do_integration()` and `draw_function()`.
+- Purpose: Public API for graphing and numerical integration. Sets `current_x_value = x_val`, then parses. Used by `do_integration()` and `draw_function()`. -->
 
 ---
 
@@ -333,62 +304,52 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 
 **Lines 76–107: `draw_axes()`**
 - Arguments: None (reads global `x_min`, `x_max`, `y_min`, `y_max`, `canvas`)
-- Purpose: Opens canvas layer. Draws Y-axis if x=0 is in range, X-axis if y=0 is in range, both in `COL_TEXT`. Calculates adaptive tick spacing (range > 100 → 20, > 50 → 10, > 20 → 5, > 10 → 2, < 2 → 0.25, < 5 → 0.5, else 1.0). Draws grey grid lines at each tick.
+- Purpose: Draws the x and y axes on the graph canvas, but only if zero falls within the current viewport range. Uses adaptive tick spacing depending on the scale, and draws grey grid lines at each tick position.
 - Objectives: 5.1 — provides clearly labelled axes on the display
 
 **Lines 109–133: `draw_function(int idx)`**
 - Arguments: `int idx` — index into `functions[]` (0–3)
-- Purpose: Evaluates `functions[idx].equation` at every pixel column using `eval_expression_x()`. Draws line segments between consecutive valid points. Skips segments where |Δy| ≥ CANVAS_H × 2 (discontinuity detection). Uses `func_colors[idx]`, line width 2.
+- Purpose: Evaluates the function at every x pixel column using `eval_expression_x()` and draws line segments between consecutive valid points. Skips any segment where the y difference is too large, to avoid drawing false vertical lines at discontinuities.
 - Objectives: 5.1 — plots the function visibly on the LCD canvas
 
 **Lines 135–160: `draw_trace_cursor()`**
 - Arguments: None (reads globals `trace_enabled`, `trace_func_idx`, `trace_x`)
-- Purpose: Evaluates traced function at `trace_x`. Draws grey vertical + horizontal crosshair. Draws 9×9 filled square at traced point in the function's colour.
+- Purpose: Evaluates the traced function at the current `trace_x` position and draws a crosshair with a small square marker at that point. The marker is coloured to match the function being traced.
 - Objectives: 5.2 — supports cursor tracing across the graph
 
-**Lines 162–167: `draw_graph()`**
+<!-- **Lines 162–167: `draw_graph()`**
 - Arguments: None
 - Purpose: Full render pipeline — fills canvas with `COL_BG`, calls `draw_axes()`, `draw_function(0..3)`, `draw_trace_cursor()`.
-- Objectives: 5.1, 5.2 — assembles the complete graph display
+- Objectives: 5.1, 5.2 — assembles the complete graph display -->
 
 **Lines 169–198: `update_function_list_ui()`**
 - Arguments: None (reads globals)
-- Purpose: Updates all 4 rows — checkbox states, selected row highlight (`COL_FOCUS_BG_GRAPH`), shows textarea (edit mode) or equation label (view mode). In edit mode, loads equation and moves cursor to end.
+- Purpose: Refreshes all 4 function rows to reflect the current state. Highlights the selected row, and switches between showing the equation label or the editable textarea depending on whether that function is currently being edited.
 - Objectives: 2.2 — keeps the LCD display of function list in sync with state
-
-**Lines 200–215: `update_graph_info()`**
-- Arguments: None
-- Purpose: Updates `info_label` with `"x:[min,max] y:[min,max]"`. If trace is active, shows `"y1: (x, y)"` in the function's colour on `coords_label`.
-- Objectives: 5.1 — displays axis range information clearly on screen
 
 **Lines 217–293: `show_function_list()`**
 - Arguments: None
-- Purpose: Sets `current_screen = SCREEN_FUNCTION_LIST`. Creates container with 4 rows (checkbox, y#= label, equation label, hidden textarea). Creates `graph_group` + `key_receiver` with `funclist_key_cb`. Adds 4 textareas to group. Calls `update_function_list_ui()`.
+- Purpose: Opens the function list editor screen. Creates a container with 4 rows, each containing a checkbox, a label, an equation label, and a hidden textarea for editing. Sets up the key receiver and calls `update_function_list_ui()` to populate the rows.
 - Objectives: 5.1 — enables the user to enter and manage up to 4 functions
 
 **Lines 296–331: `show_graph_view()`**
 - Arguments: None
-- Purpose: Sets `current_screen = SCREEN_GRAPH_VIEW`. Creates `info_label`, `coords_label`, canvas at (0, CANVAS_Y) with static draw buffer. Creates new `graph_group` + receiver with `graph_key_cb`. Calls `draw_graph()` and `update_graph_info()`.
+- Purpose: Switches to the graph canvas screen. Creates the info label, coordinates label, and LVGL canvas with a static draw buffer. Sets up the key receiver and renders the graph.
 - Objectives: 5.1, 5.2 — renders the interactive graph on the LCD
-
-**Lines 333–338: `graph_app_start()`**
-- Arguments: None
-- Purpose: Resets viewport to ±10, disables trace, resets selection. Calls `show_function_list()`.
-- Objectives: 5.1 — entry point to the graphing application
 
 **Lines 340–353: `textarea_event_cb(lv_event_t *e)`**
 - Arguments: `lv_event_t *e` — LVGL event (READY or CANCEL on function textarea)
-- Purpose: READY → copies textarea text into `functions[idx].equation`. Both READY and CANCEL → sets `editing_function = -1`, refocuses `key_receiver`, calls `update_function_list_ui()`.
+- Purpose: On READY, saves the textarea text back into the function's equation string. On both READY and CANCEL, exits edit mode and returns focus to the key receiver.
 - Objectives: 5.1 — saves or discards equation edits
 
 **Lines 355–386: `funclist_key_cb(lv_event_t *e)`**
 - Arguments: `lv_event_t *e` — LVGL key event on the hidden key receiver
-- Purpose: UP/DOWN: move `selected_function`. ENTER: start editing (`editing_function = selected`, focus textarea). ESC: toggle `functions[selected].enabled`. `'G'`: `show_graph_view()`. `'K'`: settings. `'M'`: main menu.
+- Purpose: Handles all keypad input on the function list screen. Up and down move the selection between functions. Enter starts editing the selected function. ESC toggles whether that function is enabled or disabled. The graph key switches to the graph view.
 - Objectives: 2.3 — all functions controllable from the physical keypad; 5.1 — enables toggling individual functions
 
 **Lines 388–474: `graph_key_cb(lv_event_t *e)`**
 - Arguments: `lv_event_t *e` — LVGL key event on the graph view receiver
-- Purpose: LEFT/RIGHT: in trace mode, moves `trace_x` by 4px steps; otherwise pans x-axis ±20%. UP/DOWN: in trace mode, cycles through enabled functions; otherwise pans y-axis ±20%. `'+'`: zoom in (shrinks range by 20% each side). `'-'`: zoom out (expands by 25%). `'V'`: toggles trace, initialises `trace_x` to midpoint. ENTER/ESC: `show_function_list()`. `'K'`: settings. `'M'`: menu.
+- Purpose: Handles all keypad input on the graph view screen. Left and right pan or move the trace cursor. Up and down pan the y-axis or cycle between traced functions. Plus and minus zoom in and out. The VAR key toggles trace mode. Enter and ESC return to the function list.
 - Objectives: 2.3 — all graph interactions driven by the keypad; 5.2 — implements zoom and pan
 
 ---
@@ -425,32 +386,32 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 
 **Lines 21–29: `get_current_position(int *row, int *col)`**
 - Arguments: `int *row`, `int *col` — output parameters filled with the focused button's grid position
-- Purpose: Queries `lv_group_get_focused(menu_group)`, iterates `menu_buttons[2][3]` to find which button is focused. Returns `true` if a focused button is found.
+- Purpose: Iterates over the 3×2 button grid to find which button is currently focused, and writes its row and column into the output parameters. Returns true if a focused button is found.
 - Objectives: 2.3 — enables keyboard focus tracking for grid navigation
 
 **Lines 31–37: `move(int dr, int dc)`**
 - Arguments: `int dr` — row delta (−1/+1), `int dc` — column delta (−1/+1)
-- Purpose: Computes new position from `get_current_position()`, bounds-checks against MENU_ROWS/COLS, calls `lv_group_focus_obj()` on the target button.
+- Purpose: Calculates the new focused position using `get_current_position()`, checks it against the grid bounds to prevent moving off-screen, then moves focus to the target button.
 - Objectives: 2.3 — arrow key navigation across the 3×2 button grid
 
 **Lines 39–51: `openApp(int row, int col)`**
 - Arguments: `int row` (0–1), `int col` (0–2) — grid position of the button to launch
-- Purpose: Converts 2D position to linear index. Switch: 0→`math_app_start()`, 1→`graph_app_start()`, 2→`stats_app_start()`, 3→`solver_app_start()`, 4→`mechanics_app_start()`, 5→`numerical_methods_app_start()`.
+- Purpose: Opens the app specified by the grid position, by converting the row and column into a linear index and running the appropriate app start function.
 - Objectives: 2.3 — launches any of the 6 calculator applications from the keypad
 
 **Lines 52–68: `key_event_handler(lv_event_t *e)`**
 - Arguments: `lv_event_t *e` — LVGL key event fired on the focused button
-- Purpose: UP→`move(-1,0)`, DOWN→`move(1,0)`, LEFT→`move(0,-1)`, RIGHT→`move(0,1)`, ENTER→`openApp()`, `'K'`→`settings_app_start()`.
+- Purpose: Routes arrow keys to `move()`, Enter to `openApp()`, and the settings key to `settings_app_start()`.
 - Objectives: 2.3 — routes all keypad inputs to the correct menu action
 
 **Lines 69–75: `click_event_handler(lv_event_t *e)`**
 - Arguments: `lv_event_t *e` — LVGL clicked event on a button
-- Purpose: Finds which button was clicked by comparing `lv_event_get_target()` against `menu_buttons[r][c]`, then calls `openApp(r, c)`.
+- Purpose: Identifies which button was clicked by comparing the event target against each button in the grid, then opens the corresponding app.
 - Objectives: 2.3 — supports mouse/touch input on the PC build
 
 **Lines 76–144: `main_menu_create()`**
 - Arguments: None
-- Purpose: Acquires `lvgl_lock()`. Cleans screen. Calculates centred button positions (80×65px buttons, 20×18px spacing). Creates 6 coloured buttons with white labels. Focus style: darkened bg + 3px white border. Attaches key and click handlers. Creates group, focuses button 0. Hint bar. Releases `lvgl_unlock()`.
+- Purpose: Clears the screen and creates the 6 coloured app buttons with white labels, centred on the display. Adds a white border highlight for the focused button. Automatically focuses button 0 and adds the hint bar at the bottom.
 - Objectives: 2.2 — displays all 6 apps clearly on the 320×240 LCD; 2.3 — sets up full keyboard focus management
 
 ---
@@ -474,7 +435,7 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 
 ### Functions
 
-**Lines 31–33: `get_sv(SUVAT *sv, int i)`**
+<!-- **Lines 31–33: `get_sv(SUVAT *sv, int i)`**
 - Arguments: `SUVAT *sv` — pointer to SUVAT struct; `int i` — variable index (0=s, 1=u, 2=v, 3=a, 4=t)
 - Purpose: Returns the value of the i-th SUVAT variable using a switch statement for index-based access.
 - Objectives: 8.1 — provides array-like access to the five kinematic variables
@@ -482,52 +443,42 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 **Lines 35–37: `set_sv(SUVAT *sv, int i, double v)`**
 - Arguments: `SUVAT *sv` — pointer to SUVAT struct; `int i` — variable index; `double v` — value to assign
 - Purpose: Sets the i-th SUVAT variable by index, enabling loop-based population of the struct.
-- Objectives: 8.1 — enables programmatic writing of solved SUVAT values
+- Objectives: 8.1 — enables programmatic writing of solved SUVAT values -->
 
 **Lines 39–47: `count_known(SUVAT *sv)`**
 - Arguments: `SUVAT *sv` — pointer to SUVAT struct
-- Purpose: Counts how many of the 5 SUVAT fields are not equal to `SUVAT_UNKNOWN`. Returns an int 0–5.
+- Purpose: Counts how many of the 5 SUVAT variables are not equal to `SUVAT_UNKNOWN`. Used to check whether the user has entered enough values before attempting to solve.
 - Objectives: 8.2 — used to enforce the minimum 3-input validation rule
 
 **Lines 49–89: `solve_suvat(SUVAT *sv)`**
 - Arguments: `SUVAT *sv` — pointer to SUVAT struct (modified in-place)
-- Purpose: Iterates up to 10 times. Each iteration applies 15 rearranged SUVAT equations: `v=u+at`, `u=v−at`, `t=(v−u)/a`, `a=(v−u)/t`, `s=ut+½at²`, `s=(u+v)t/2`, `v²=u²+2as` (→v), (→u), `a=(v²−u²)/(2s)`, `s=(v²−u²)/(2a)`, `t=2s/(u+v)`, `u=2s/t−v`, `v=2s/t−u`, `a=2(vt−s)/t²`, `u=(s−½at²)/t`. Breaks early if `count_known` does not increase. Returns final `count_known()`.
+- Purpose: Iteratively applies all 15 rearrangements of the SUVAT equations to fill in any unknown variables. Repeats up to 10 times, stopping early if no new variables are solved in a pass. Returns the number of known variables at the end.
 - Objectives: 8.1 — implements iterative constraint propagation to solve all SUVAT equations
 
 **Lines 94–122: `do_calculate()`**
 - Arguments: None (reads from `input_fields[]` textareas)
-- Purpose: Reads all 5 input textareas using `atof()` (empty fields become `SUVAT_UNKNOWN`). If `count_known < 3`, shows "Enter at least 3 values" error. Calls `solve_suvat()`. If solved count < 5, shows "Cannot solve - check inputs". Otherwise calls `show_result_page()`.
+- Purpose: Reads all 5 input fields and treats empty ones as unknown. Validates that at least 3 values are provided, then calls `solve_suvat()`. Displays an appropriate error message if the inputs are insufficient or contradictory, otherwise shows the result page.
 - Objectives: 8.2 — enforces the 3-input minimum; 3.2 — displays error messages for invalid inputs
-
-**Lines 124–129: `focus_input(int idx)`**
-- Arguments: `int idx` — index of the input field to focus (0–4)
-- Purpose: Clamps idx to valid range 0–4, updates `focused_field`, calls `lv_group_focus_obj(input_fields[idx])`.
-- Objectives: 2.3 — enables keypad-driven focus movement between input fields
 
 **Lines 131–171: `mech_textarea_key_cb(lv_event_t *e)`**
 - Arguments: `lv_event_t *e` — LVGL key event fired on a SUVAT input textarea
-- Purpose: UP: `focus_input(idx−1)`, DOWN: `focus_input(idx+1)`, ENTER: `do_calculate()`, ESC: clears all 5 fields and resets SUVAT struct to UNKNOWN, `'K'`: `settings_app_start()`, `'M'`: `main_menu_create()`.
+- Purpose: Handles all keypad input on the SUVAT input page. Up and down move focus between the 5 fields. Enter triggers the calculation. ESC clears all fields and resets the solver state.
 - Objectives: 2.3 — full keypad control of the SUVAT input page
-
-**Lines 173–181: `mech_result_key_cb(lv_event_t *e)`**
-- Arguments: `lv_event_t *e` — LVGL key event on the result page hidden receiver
-- Purpose: `'K'`: settings, `'M'`: main menu, ESC: `show_input_page()` (return to inputs).
-- Objectives: 2.3 — keypad navigation from the result page back to inputs
 
 **Lines 183–233: `show_input_page()`**
 - Arguments: None
-- Purpose: Clears screen, creates new `mech_group`. Creates 5 rows each with a label (`"s (m):"` etc.) and a textarea. Restores previous values if `IS_KNOWN`. Adds error label. Registers `mech_textarea_key_cb`. Calls `focus_input(0)`. Creates hint bar.
+- Purpose: Creates the SUVAT input screen with 5 labelled textareas for s, u, v, a, and t. Restores any previously entered values. Adds an error label for validation messages and focuses the first field.
 - Objectives: 2.2 — displays all 5 SUVAT input fields clearly on the LCD; 8.1 — presents the standard kinematic variable layout
 
 **Lines 235–274: `show_result_page()`**
 - Arguments: None
-- Purpose: Clears screen, creates new group with hidden key receiver using `mech_result_key_cb`. Displays 5 result labels formatted as `"s (m) = 12.3456"`. Shows SUVAT equation reference at bottom: `"v=u+at  s=ut+0.5at²\nv²=u²+2as  s=(u+v)t/2"`.
+- Purpose: Displays the solved SUVAT values on a results screen, each formatted as e.g. `"s (m) = 12.3456"`. Also shows a compact reference of the four SUVAT equations at the bottom of the screen.
 - Objectives: 2.2 — clearly displays all solved values on the LCD; 6.2 — all correct solutions are shown on screen
 
-**Lines 276–287: `mechanics_app_start()`**
+<!-- **Lines 276–287: `mechanics_app_start()`**
 - Arguments: None
 - Purpose: Resets all 5 SUVAT fields to `SUVAT_UNKNOWN`. Nulls `mech_group`. Resets `focused_field = 0`. Calls `show_input_page()`.
-- Objectives: 8.1 — initialises the SUVAT solver in a clean state
+- Objectives: 8.1 — initialises the SUVAT solver in a clean state -->
 
 ---
 
@@ -552,98 +503,85 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 
 ### Functions
 
-**Lines 24–30: `cleanup_nm_ui()`**
+<!-- **Lines 24–30: `cleanup_nm_ui()`**
 - Arguments: None
 - Purpose: If `nm_group` is non-null, calls `ui_submenu_cleanup(nm_group)` and nulls both `nm_group` and `nm_key_recv`. Prevents LVGL memory leaks when switching between NM sub-screens.
-- Objectives: General — ensures clean screen transitions within the NM module
+- Objectives: General — ensures clean screen transitions within the NM module -->
 
-**Lines 32–50: `setup_nm_screen(const char *hint)`**
+<!-- **Lines 32–50: `setup_nm_screen(const char *hint)`**
 - Arguments: `const char *hint` — hint bar text string
 - Purpose: Calls `cleanup_nm_ui()`, cleans active screen, calls `ui_setup_screen()`. Creates `nm_group`, hidden `nm_key_recv` (0×0 object added to group). Creates hint bar with provided text. Sets indev group. Returns the active screen pointer.
-- Objectives: 2.2 — standard screen setup with hint bar for all NM sub-screens
+- Objectives: 2.2 — standard screen setup with hint bar for all NM sub-screens -->
 
 **Lines 52–68: `parse_csv(const char *str, double *out, int max)`**
 - Arguments: `const char *str` — comma- or space-separated number string; `double *out` — output array; `int max` — maximum values to parse
-- Purpose: Copies `str` to a local buffer. Uses `strtod()` to extract numbers one by one, skipping spaces and commas. Returns the count of successfully parsed values.
+- Purpose: Parses a string of space- or comma-separated numbers into a double array. Returns the count of successfully parsed values, allowing the caller to validate the input before using it.
 - Objectives: 7.3 — enables user to input x/y data lists for curve fitting
 
 **Lines 74–116: `do_curve_fit()`**
 - Arguments: None (reads from `cf_x_field` and `cf_y_field` textareas)
-- Purpose: Calls `parse_csv()` on both fields. Validates n ≥ 2 and nx == ny. Computes Σx, Σy, Σx², Σxy. Slope: `m = (n·Σxy − Σx·Σy) / (n·Σx² − Σx²)`. Intercept: `c = (Σy − m·Σx) / n`. R²: `1 − SS_res / SS_tot`. Displays `"y = mx ± c\nR² = value  (n=N)"` in `cf_result_lbl`.
+- Purpose: Reads the x and y data from both fields and validates that there are at least 2 matching pairs. Performs least-squares linear regression to compute the slope, intercept, and R² value, then displays the result as `"y = mx ± c"`.
 - Objectives: 7.3 — performs least-squares linear regression and reports R²
 
 **Lines 118–159: `cf_key_cb(lv_event_t *e)`**
 - Arguments: `lv_event_t *e` — LVGL key event on a curve fitting textarea
-- Purpose: UP/DOWN: `lv_group_focus_prev/next()`. ENTER: `do_curve_fit()`. `'f'` (FRAC key): deletes previous char and inserts a space (CSV separator). ESC: `show_nm_menu()`. `'K'`: settings. `'M'`: main menu.
+- Purpose: Handles keypad input on the curve fitting screen. Enter triggers the regression calculation. The FRAC key inserts a space to act as a CSV separator between values. ESC returns to the numerical methods menu.
 - Objectives: 2.3 — full keypad control of curve fitting input; 7.3 — triggers the regression calculation
 
 **Lines 161–199: `show_curve_fitting()`**
 - Arguments: None
-- Purpose: Calls `setup_nm_screen()`. Creates title label "Curve Fitting  y = mx + c". Creates `cf_x_field` (x vals, CSV placeholder "1 2 3 4") and `cf_y_field` (y vals, placeholder "2 4 5 4"), both full-width minus label. Creates `cf_result_lbl`. Focuses `cf_x_field`.
+- Purpose: Creates the curve fitting input screen with two data fields for x and y values, and a result label. Placeholder text shows the expected format of space-separated numbers.
 - Objectives: 7.3 — builds the curve fitting input screen; 2.2 — displays fields clearly on LCD
 
 **Lines 207–245: `do_integration()`**
 - Arguments: None (reads from `ni_expr_field`, `ni_a_field`, `ni_b_field`, `ni_n_field`)
-- Purpose: Reads expr, a, b, n (defaults n to 100, clamps to even, max 10000). If a == b, result is 0. Otherwise applies Simpson's 1/3 rule: `h = (b−a)/n`, sum = f(a)+f(b), inner terms get coefficient 4 (odd i) or 2 (even i), `result = (h/3) × sum`. Displays `"= value  (n=N steps)"` or error if NaN/Inf.
+- Purpose: Reads f(x), the lower and upper bounds, and the number of steps. Applies Simpson's 1/3 rule to numerically integrate f(x) from a to b, using alternating coefficients of 4 and 2 for the inner terms. Displays the result with the number of steps used, or an error if the result is invalid.
 - Objectives: 7.2 — implements Simpson's rule for definite numerical integration; 1.2 — uses sufficient steps (up to 10000) for 6+ significant figure accuracy
 
 **Lines 247–283: `ni_textarea_key_cb(lv_event_t *e)`**
 - Arguments: `lv_event_t *e` — LVGL key event on any numerical integration textarea
-- Purpose: UP/DOWN: navigate fields. ENTER: `do_integration()`. ESC: `show_nm_menu()`. `'M'`: main menu. Special keys delete the preceding auto-inserted character then insert the function string:
-
-| Key | Inserted |
-|-----|----------|
-| `'s'` | `"sin("` |
-| `'c'` | `"cos("` |
-| `'t'` | `"tan("` |
-| `'r'` | `"sqrt("` |
-| `'l'` | `"ln("` |
-| `'L'` | `"log("` |
-| `'P'` | `"pi"` |
-| `'X'` | `"^"` |
-| `'V'` | `"x"` |
-
+- Purpose: Handles keypad input on the integration screen. Enter triggers the calculation. Function keys like `'s'` and `'r'` insert the corresponding function string into the textarea. ESC returns to the numerical methods menu.
 - Objectives: 2.3 — keypad drives all integration input; 1.1 — supports trig/power functions in the integrand
 
 **Lines 285–346: `show_numerical_integration()`**
 - Arguments: None
-- Purpose: Calls `setup_nm_screen()`. Creates title "Numerical Integration (Simpson)". Creates 4 fields: `ni_expr_field` (f(x)=, full width), `ni_a_field` (a=, half width), `ni_b_field` (b=, half width), `ni_n_field` (steps, 80px). Creates `ni_result_lbl`. All fields register `ni_textarea_key_cb`. Focuses `ni_expr_field`.
+- Purpose: Creates the numerical integration screen with input fields for the expression, lower bound, upper bound, and step count. All fields share the same key callback.
 - Objectives: 7.2 — builds the numerical integration UI; 2.2 — displays fields clearly on LCD
 
 **Lines 351–354: `numerical_derivative(const char *expr, double x)`**
 - Arguments: `const char *expr` — expression string; `double x` — point at which to differentiate
-- Purpose: Computes central difference approximation `(f(x+h) − f(x−h)) / (2h)` with h = 1e-5 using `eval_expression_x()`.
+- Purpose: Estimates the derivative of f(x) at a given point using the central difference method: `(f(x+h) − f(x−h)) / (2h)` with h = 1e-5.
 - Objectives: 7.1 — provides the derivative estimate needed by Newton-Raphson
 
 **Lines 356–372: `newton_raphson(const char *expr, double x0, double *result, int *iters)`**
 - Arguments: `const char *expr` — f(x) expression; `double x0` — initial guess; `double *result` — output root; `int *iters` — output iteration count
-- Purpose: Iterates up to `NR_MAX_ITERATIONS` (100). Each step: computes `fx = eval_expression_x(expr, x)`, `fpx = numerical_derivative(expr, x)`. Breaks if |fpx| < 1e-14 (near-zero derivative). Computes `xn = x − fx/fpx`. If `|xn − x| < NR_TOLERANCE` (1e-8): stores `*result = xn`, returns 1 (converged). Otherwise updates `x = xn`. Returns 0 if no convergence.
+- Purpose: Iteratively refines an initial guess using the Newton-Raphson formula `x = x − f(x)/f'(x)`. Stops when the change between iterations is below 1e-8, or after 100 iterations. Returns 1 on convergence, 0 otherwise.
 - Objectives: 7.1 — core Newton-Raphson iterative root-finding algorithm
 
 **Lines 376–387: `solve_nr_fn(lv_obj_t **f, int n, lv_obj_t *res)`**
 - Arguments: `lv_obj_t **f` — array of field pointers (f[0]=expr textarea, f[1]=x0 textarea); `int n` — field count (2); `lv_obj_t *res` — result label
-- Purpose: Reads expr and x0 from textareas. Calls `newton_raphson()`. Displays `"x = value  (N iters)"` on success or `"No convergence (x~value)"` on failure.
+- Purpose: Reads the expression and initial guess from the input fields, then calls `newton_raphson()`. Displays the root and iteration count on success, or a no-convergence message on failure.
 - Objectives: 7.1 — shows the Newton-Raphson result clearly; 3.2 — displays failure message when no convergence
 
 **Lines 391–433: `nr_key_cb(lv_event_t *e)`**
 - Arguments: `lv_event_t *e` — LVGL key event on a Newton-Raphson textarea
-- Purpose: Same key handling as `ni_textarea_key_cb` with the addition of: `'V'` → insert `"x"`, `'W'` → insert `"^2"`, `'K'` → `settings_app_start()`. ENTER calls `solve_nr_fn()`. ESC returns to `show_nm_menu()`.
+- Purpose: Handles keypad input on the Newton-Raphson screen. Works the same as `ni_textarea_key_cb` but Enter calls `solve_nr_fn()` instead. Also supports `x` and `^2` insertion from their respective keys.
 - Objectives: 2.3 — keypad drives Newton-Raphson input; 1.1 — supports trig and power notation in f(x)
 
 **Lines 435–473: `show_newton_raphson()`**
 - Arguments: None
-- Purpose: Calls `setup_nm_screen()`. Creates title "Newton-Raphson  f(x)=0". Creates `nr_fields[0]` (f(x)= textarea, full width, placeholder "e.g. x^2-4") and `nr_fields[1]` (x0= textarea, 100px wide, placeholder "1"). Creates `nr_fields[2]` as result label. Registers `nr_key_cb` on both textareas. Focuses `nr_fields[0]`.
+- Purpose: Creates the Newton-Raphson input screen with a field for f(x) and a field for the initial guess x0, plus a result label below. Placeholder text guides the user with an example expression.
 - Objectives: 7.1 — builds the Newton-Raphson input screen; 2.2 — displays input fields clearly on LCD
 
-**Lines 483–487: `show_nm_menu()`**
+<!-- **Lines 483–487: `show_nm_menu()`**
 - Arguments: None
 - Purpose: Calls `cleanup_nm_ui()`. Calls `ui_create_submenu(nm_menu_items, 3, &style, main_menu_create)` where style uses `COL_ACCENT_NM` and `COL_FOCUS_BG_NM`.
-- Objectives: General — navigation hub for the three numerical methods tools
+- Objectives: General — navigation hub for the three numerical methods tools -->
 
-**Lines 489–491: `numerical_methods_app_start()`**
+<!-- **Lines 489–491: `numerical_methods_app_start()`**
 - Arguments: None
 - Purpose: Calls `show_nm_menu()`. Entry point called by `main_menu.c`.
-- Objectives: 7.1, 7.2, 7.3 — launches the full Numerical Methods application
+- Objectives: 7.1, 7.2, 7.3 — launches the full Numerical Methods application -->
 
 ---
 
@@ -665,7 +603,7 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 | `SETTINGS_VAR_COUNT` | (settings.h:17) | 9 |
 | `AngleMode` enum | (settings.h:7) | `ANGLE_RAD = 0`, `ANGLE_DEG` |
 
-### Public API (lines 14–26)
+<!-- ### Public API (lines 14–26)
 
 | Function | Line | Arguments | Purpose |
 |----------|------|-----------|---------|
@@ -675,68 +613,58 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 | `settings_set_decimal_places(dp)` | 18 | `int dp` | Clamps to 0–10, sets `decimal_places` |
 | `settings_get_variable(idx)` | 20 | `int idx` (0–8) | Bounds-checked getter for `user_vars` |
 | `settings_set_variable(idx, v)` | 21 | `int idx`, `double v` | Bounds-checked setter for `user_vars` |
-| `settings_get_variable_name(idx)` | 22 | `int idx` | Returns `'A'`–`'F'` for 0–5, `'x'`/`'y'`/`'z'` for 6/7/8 |
+| `settings_get_variable_name(idx)` | 22 | `int idx` | Returns `'A'`–`'F'` for 0–5, `'x'`/`'y'`/`'z'` for 6/7/8 | -->
 
 ### Functions
 
 **Lines 40–51: `angle_update()`**
 - Arguments: None (reads globals `angle_sel`, `angle_labels[]`)
-- Purpose: Sets text of both `angle_labels[]` to "Radians (RAD)" and "Degrees (DEG)". Highlights `angle_labels[angle_sel]` with `COL_FOCUS_BG_SETTINGS` background, sets others to transparent.
+- Purpose: Highlights the currently selected angle mode label and sets all others to a transparent background, providing visual feedback of the current selection.
 - Objectives: 1.1 — visual feedback for angle mode selection which directly affects trig functions
 
 **Lines 53–74: `angle_key_cb(lv_event_t *e)`**
 - Arguments: `lv_event_t *e` — LVGL key event on the angle page hidden receiver
-- Purpose: UP: `angle_sel--` (min 0), DOWN: `angle_sel++` (max 1), calls `angle_update()`. ENTER: sets `angle_mode = ANGLE_RAD or ANGLE_DEG`, calls `show_settings_menu()`. ESC: `show_settings_menu()`. `'M'`: `main_menu_create()`.
+- Purpose: Handles keypad input on the angle mode selection page. Up and down move the selection between RAD and DEG. Enter saves the selection and returns to the settings menu.
 - Objectives: 1.1 — allows switching between radians and degrees for trig calculations; 2.3 — keypad-driven selection
 
 **Lines 76–122: `show_angle_page()`**
 - Arguments: None
-- Purpose: Cleans screen, calls `ui_setup_screen()`. Sets `angle_sel` from current `angle_mode`. Creates `angle_group`. Creates title "Angle Unit". Creates 2 labels with left-padding and rounded corners. Creates hidden key receiver with `angle_key_cb`. Sets indev group and focuses receiver. Calls `angle_update()`. Shows current mode label. Hint bar.
+- Purpose: Creates the angle mode selection screen with two labelled options for Radians and Degrees. Pre-selects the current mode and adds a hint bar at the bottom.
 - Objectives: 1.1 — presents RAD/DEG selection; 2.2 — LCD display of angle mode page
-
-**Lines 128–137: `dec_update()`**
-- Arguments: None (reads `dec_sel`, `dec_labels[]`)
-- Purpose: Highlights `dec_labels[dec_sel]` with `COL_FOCUS_BG_SETTINGS`, sets all others to transparent background.
-- Objectives: 1.2 — visual selection of decimal precision setting
 
 **Lines 139–160: `dec_key_cb(lv_event_t *e)`**
 - Arguments: `lv_event_t *e` — LVGL key event on the decimal places page hidden receiver
-- Purpose: UP: `dec_sel--` (min 0), DOWN: `dec_sel++` (max 10), calls `dec_update()`. ENTER: `decimal_places = dec_sel`, calls `show_settings_menu()`. ESC: back. `'M'`: main menu.
+- Purpose: Handles keypad input on the decimal places page. Up and down scroll through the 11 options (Auto plus 1–10). Enter saves the selection and returns to the settings menu.
 - Objectives: 1.2 — controls output precision; 2.3 — keypad navigation
 
 **Lines 162–215: `show_decimals_page()`**
 - Arguments: None
-- Purpose: Cleans screen. Sets `dec_sel` from `decimal_places`. Creates `dec_group`. Creates title "Decimal Places". Creates a non-scrollable container with 11 labels (i=0: "Auto (smart)", i=1–10: "N decimal place(s)"), each 18px tall. Creates hidden key receiver with `dec_key_cb`. Calls `dec_update()`. Hint bar.
+- Purpose: Creates the decimal places selection screen with 11 labelled options: Auto and 1–10 fixed decimal places. Pre-selects the current value and adds a hint bar.
 - Objectives: 1.2 — allows selecting from Auto or 1–10 decimal places; 2.2 — LCD display of options
-
-**Lines 222–227: `var_focus(int idx)`**
-- Arguments: `int idx` — variable index to focus (0–8)
-- Purpose: Clamps idx to valid range 0..(SETTINGS_VAR_COUNT−1), updates `var_focused`, calls `lv_group_focus_obj(var_fields[idx])`.
-- Objectives: 2.3 — keypad-driven focus movement between variable fields
 
 **Lines 229–268: `var_key_cb(lv_event_t *e)`**
 - Arguments: `lv_event_t *e` — LVGL key event on a variable editor textarea
-- Purpose: UP: `var_focus(idx−1)`, DOWN: `var_focus(idx+1)`. ENTER: iterates all 9 textareas, saves non-empty values as `atof()` or 0 into `user_vars[]`, calls `show_settings_menu()`. ESC: `show_settings_menu()` without saving. `'M'`: main menu.
+- Purpose: Handles keypad input on the variable editor page. Up and down move focus between the 9 variable fields. Enter saves all non-empty fields into `user_vars[]` and returns to the settings menu. ESC discards changes.
 - Objectives: 1.3 — saves user-defined variables to memory for use in expressions
 
 **Lines 270–319: `show_variables_page()`**
 - Arguments: None
-- Purpose: Cleans screen. Creates `var_group`. Creates title "Variables (A-F, x/y/z)". Creates a scrollable container. For each i=0..8: creates label using `settings_get_variable_name(i)` + ":", and a 200px-wide textarea. Loads non-zero current values. Registers `var_key_cb`. Calls `var_focus(0)`. Hint bar.
+- Purpose: Creates the variable editor screen with a labelled textarea for each of the 9 variables (A–F, x, y, z). Pre-fills any variables that are already set to a non-zero value.
 - Objectives: 1.3 — displays all 9 user variables (A–F, x/y/z) for editing; 2.2 — clear LCD display
 
 **Lines 321–325: `settings_items[]`**
 - 3 `SubMenuItem`s: `{"Angle Unit (RAD/DEG)", show_angle_page}`, `{"Decimal Places", show_decimals_page}`, `{"Variable Editor (A-F, x/y/z)", show_variables_page}`
 - Objectives: General — defines the settings submenu entries
 
-**Lines 327–334: `show_settings_menu()`**
+<!-- **Lines 327–334: `show_settings_menu()`**
 - Arguments: None
 - Purpose: Creates a `SubMenuStyle` with `COL_ACCENT_SETTINGS` and `COL_FOCUS_BG_SETTINGS`. Calls `ui_create_submenu(settings_items, 3, &style, main_menu_create)`.
-- Objectives: General — displays the top-level settings navigation list
+- Objectives: General — displays the top-level settings navigation list -->
 
-**Lines 336–338: `settings_app_start()`**
+<!-- **Lines 336–338: `settings_app_start()`**
 - Arguments: None
 - Purpose: Calls `show_settings_menu()`. Entry point called from any app via `'K'` key or the main menu.
-- Objectives: 1.1, 1.2, 1.3 — entry point for all global calculator configuration
+- Objectives: 1.1, 1.2, 1.3 — entry point for all global calculator configuration -->
 
 ---
 
@@ -761,73 +689,58 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 
 **Lines 27–32: `solve_linear(double a, double b, double *x)`**
 - Arguments: `double a`, `double b` — coefficients; `double *x` — output root
-- Purpose: Returns 0 (no solution) if |a| < 1e-12. Otherwise computes `*x = −b/a` and returns 1.
+- Purpose: Solves ax + b = 0. Returns 0 if a is effectively zero (no solution), otherwise computes `x = −b/a` and returns 1.
 - Objectives: 6.1 — analytically solves the linear equation ax + b = 0
 
 **Lines 34–50: `solve_quadratic(double a, double b, double c, double *x1, double *x2)`**
 - Arguments: `double a`, `double b`, `double c` — coefficients; `double *x1`, `double *x2` — output roots
-- Purpose: If |a| < 1e-12, delegates to `solve_linear(b, c, x1)`. Computes discriminant `d = b²−4ac`. Returns 0 if d < 0 (no real roots). If |d| < 1e-12: repeated root `*x1 = *x2 = −b/(2a)`, returns 1. Else: `*x1 = (−b+√d)/(2a)`, `*x2 = (−b−√d)/(2a)`, returns 2.
+- Purpose: Solves ax² + bx + c = 0. Falls back to `solve_linear` if a is zero. Computes the discriminant and returns 0 for no real roots, 1 for a repeated root, or 2 for two distinct roots.
 - Objectives: 6.1 — analytically solves the quadratic equation; 6.2 — correctly handles all three root cases
-
-**Lines 52–59: `cleanup_solver_ui()`**
-- Arguments: None
-- Purpose: If `solver_group` non-null, calls `ui_submenu_cleanup(solver_group)`. Nulls `solver_group`, `solver_key_recv`, `solver_hint_lbl`.
-- Objectives: General — clean screen teardown preventing LVGL memory leaks
-
-**Lines 61–82: `setup_solver_screen(const char *hint_text)`**
-- Arguments: `const char *hint_text` — hint bar string
-- Purpose: Calls `cleanup_solver_ui()`. Cleans screen. Creates `solver_group`. Creates hidden `solver_key_recv` (0×0), adds to group. Creates hint bar. Sets indev group. Returns the screen pointer.
-- Objectives: 2.2 — standard solver screen setup with hint bar
 
 **Lines 91–100: `show_solver_menu()`**
 - Arguments: None
-- Purpose: Sets `current_mode = SOLVER_MENU`. Calls `cleanup_solver_ui()`. Creates `SubMenuStyle` with `COL_ACCENT_SOLVER`. Calls `ui_create_submenu(solver_menu_items, 2, &style, main_menu_create)`.
+- Purpose: Displays the solver submenu with two options: Linear and Quadratic. Uses the shared `ui_create_submenu` component with the solver's orange accent colour.
 - Objectives: 6.1 — entry point presenting linear and quadratic solver options
 
 **Lines 111–133: `sub_solver_key_cb(lv_event_t *e)`**
 - Arguments: `lv_event_t *e` — LVGL key event on the solver's hidden key receiver
-- Purpose: ENTER: calls `active_ctx->solve_fn(fields, count, result_label)`. ESC: `show_solver_menu()`. `'K'`: `cleanup_solver_ui()` + `settings_app_start()`. `'M'`: `cleanup_solver_ui()` + `main_menu_create()`.
+- Purpose: Enter triggers the solve by calling the function pointer stored in `active_ctx`. ESC returns to the solver menu. Uses a function pointer so the same callback works for both the linear and quadratic solver without duplicating logic.
 - Objectives: 2.3 — keypad triggers solve via function pointer dispatch; 6.1 — generic solve handler
-
-**Lines 135–140: `solver_insert_text_at_cursor(const char *text)`**
-- Arguments: `const char *text` — string to insert
-- Purpose: Gets currently focused object from `solver_group`. If it is a textarea, calls `lv_textarea_add_text()` to append text at cursor.
-- Objectives: 1.1 — enables entry of math functions (sin, sqrt, etc.) from keypad into solver fields
 
 **Lines 142–180: `solver_handle_custom_key(uint32_t key)`**
 - Arguments: `uint32_t key` — single-character LVGL key code
-- Purpose: Maps special key codes to `solver_insert_text_at_cursor()` calls. Returns 1 if handled, 0 otherwise. Mappings: `'s'`→`"sin("`, `'c'`→`"cos("`, `'t'`→`"tan("`, `'r'`→`"sqrt("`, `'l'`→`"ln("`, `'L'`→`"log("`, `'P'`→`"pi"`, `'E'`→`"e"`, `'V'`→`"x"`, `'W'`→`"^2"`, `'X'`→`"^"`.
+- Purpose: Maps special key codes to multi-character function insertions in the focused solver textarea. For example `'s'` inserts `"sin("` and `'r'` inserts `"sqrt("`. Returns 1 if the key was handled, 0 otherwise.
 - Objectives: 1.1 — allows full use of mathematical functions and constants in solver expressions
 
 **Lines 182–225: `solver_textarea_key_cb(lv_event_t *e)`**
 - Arguments: `lv_event_t *e` — LVGL key event on a solver input textarea
-- Purpose: UP: `lv_group_focus_prev()`, DOWN: `lv_group_focus_next()`, ENTER: `active_ctx->solve_fn()`, ESC: `show_solver_menu()`, `'K'`: settings, `'M'`: main menu. For function key codes (`'s'`, `'c'`, `'t'`, `'r'`, `'l'`, `'L'`, `'P'`, `'E'`, `'V'`, `'W'`, `'X'`): deletes preceding auto-inserted character, then calls `solver_handle_custom_key()`.
+- Purpose: Handles all keypad input within the solver coefficient fields. Up and down move between fields. Enter calls the solve function. Function keys like `'s'` and `'r'` are forwarded to `solver_handle_custom_key()`.
 - Objectives: 2.3 — keypad handles all navigation and input within solver screens
 
 **Lines 230–240: `solve_linear_fn(lv_obj_t **f, int n, lv_obj_t *res)`**
 - Arguments: `lv_obj_t **f` — array of field pointers (f[0]=a, f[1]=b textareas); `int n` — field count (2); `lv_obj_t *res` — result label
-- Purpose: Reads a and b as `atof()` from textareas. Calls `solve_linear(a, b, &x)`. Displays `"x = value"` or `"No solution (a=0)"`.
+- Purpose: Reads a and b from the input fields and calls `solve_linear()`. Displays the root or a "No solution" message if a equals zero.
 - Objectives: 6.1 — solves ax + b = 0; 6.2 — displays solution clearly; 6.3 — shows error for degenerate case
 
 **Lines 242–270: `show_linear_solver()`**
 - Arguments: None
-- Purpose: Sets `current_mode = SOLVER_LINEAR`. Calls `setup_solver_screen("[=] Solve  [AC] Back  [M] Menu")`. Registers `sub_solver_key_cb` on `solver_key_recv`. Creates title label "ax + b = 0". Creates 2 textareas (a:, b:) with `solver_textarea_key_cb`. Creates result label. Sets `linear_ctx` and `active_ctx = &linear_ctx`. Focuses `linear_fields[0]`.
+- Purpose: Creates the linear solver screen with two input fields for a and b, and a result label. Sets the active context so that Enter triggers `solve_linear_fn`.
 - Objectives: 6.1 — builds the linear solver UI; 2.2 — clearly displays input fields on LCD
 
 **Lines 275–289: `solve_quad_fn(lv_obj_t **f, int n, lv_obj_t *res)`**
 - Arguments: `lv_obj_t **f` — array of field pointers (f[0]=a, f[1]=b, f[2]=c textareas); `int n` — field count (3); `lv_obj_t *res` — result label
-- Purpose: Reads a, b, c from textareas. Calls `solve_quadratic(a, b, c, &x1, &x2)`. Displays "No real solutions", `"x = value"` (repeated root), or `"x1 = value\nx2 = value"` (two roots).
+- Purpose: Reads a, b, c from the input fields and calls `solve_quadratic()`. Displays "No real solutions", a single root, or both roots depending on the discriminant.
 - Objectives: 6.1 — solves ax² + bx + c = 0; 6.2 — shows all roots; 6.3 — clear no-solution message
 
 **Lines 291–320: `show_quadratic_solver()`**
 - Arguments: None
-- Purpose: Sets `current_mode = SOLVER_QUADRATIC`. Calls `setup_solver_screen()`. Registers `sub_solver_key_cb`. Creates title "ax² + bx + c = 0". Creates 3 textareas (a:, b:, c:). Creates result label with 40px height (for two-line output). Sets `quad_ctx` and `active_ctx`. Focuses `quad_fields[0]`.
+- Purpose: Creates the quadratic solver screen with three input fields for a, b, and c, and a taller result label to accommodate two-line output. Sets the active context so that Enter triggers `solve_quad_fn`.
 - Objectives: 6.1 — builds the quadratic solver UI; 2.2 — displays all 3 coefficient fields clearly
 
-**Line 322: `solver_app_start()`**
+<!-- **Line 322: `solver_app_start()`**
 - Arguments: None
 - Purpose: Calls `show_solver_menu()`. Entry point called by `main_menu.c`.
-- Objectives: 6.1, 6.2, 6.3 — launches the equation solver application
+- Objectives: 6.1, 6.2, 6.3 — launches the equation solver application -->
 
 ---
 
@@ -850,129 +763,117 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 
 ### Statistical Algorithm Functions
 
-**Lines 79–85: `factorial(int n)`**
+<!-- **Lines 79–85: `factorial(int n)`**
 - Arguments: `int n` — non-negative integer
 - Purpose: Returns NAN for n < 0. Returns 1.0 for n ≤ 1. Iterates product from 2 to n. Used internally for Poisson and binomial calculations.
-- Objectives: 4.1, 4.3 — required by binomial coefficient and Poisson PMF
+- Objectives: 4.1, 4.3 — required by binomial coefficient and Poisson PMF -->
 
 **Lines 87–93: `binomial_coeff(int n, int k)`**
 - Arguments: `int n` — number of trials; `int k` — number of successes
-- Purpose: Returns 0 for k < 0 or k > n. Returns 1 for k=0 or k=n. Otherwise uses iterative multiply-divide: `r *= (n−i); r /= (i+1)` for i = 0..k−1. Avoids large intermediate values.
+- Purpose: Computes C(n,k) using an iterative multiply-divide approach to avoid large intermediate values. Returns 0 for out-of-range inputs and 1 for the edge cases k=0 or k=n.
 - Objectives: 4.1 — computes C(n,k) for the binomial PMF
 
 **Lines 95–99: `binomial_pmf(int n, int k, double p)`**
 - Arguments: `int n` — trials; `int k` — successes; `double p` — probability of success
-- Purpose: Validates p ∈ [0,1], n ≥ 0, k ∈ [0,n]. Returns `C(n,k) × p^k × (1−p)^(n−k)`.
+- Purpose: Validates all inputs and computes P(X=k) using the binomial formula C(n,k) × p^k × (1−p)^(n−k).
 - Objectives: 4.1 — calculates P(X=k) for the binomial distribution
 
 **Lines 101–109: `binomial_cdf(int n, int k, double p)`**
 - Arguments: `int n` — trials; `int k` — maximum successes; `double p` — probability
-- Purpose: Validates inputs. Returns 1.0 early if k ≥ n. Otherwise sums `binomial_pmf(n, i, p)` for i = 0 to k.
+- Purpose: Computes cumulative P(X≤k) by summing the PMF from 0 to k. Returns 1.0 immediately if k ≥ n to avoid unnecessary iterations.
 - Objectives: 4.1 — calculates cumulative P(X≤k) for the binomial distribution
 
 **Lines 111–115: `normal_pdf(double x, double mu, double sigma)`**
 - Arguments: `double x` — value; `double mu` — mean; `double sigma` — standard deviation
-- Purpose: Returns NAN if σ ≤ 0. Computes `(1/(σ√(2π))) × e^(−½((x−μ)/σ)²)`.
+- Purpose: Evaluates the normal probability density function at x. Returns NAN if σ is not positive.
 - Objectives: 4.2 — evaluates the normal probability density function
 
 **Lines 117–124: `erf_approx(double x)`**
 - Arguments: `double x` — input value
-- Purpose: Abramowitz & Stegun approximation. Computes `t = 1/(1 + 0.3275911|x|)`. Polynomial: `y = 1 − (a1t + a2t² + a3t³ + a4t⁴ + a5t⁵) × e^(−x²)`. Returns signed result.
+- Purpose: Approximates the error function using the Abramowitz & Stegun polynomial method. Used internally by `normal_cdf()` as a substitute for the standard library erf, which is not available on all targets.
 - Objectives: 4.2 — provides the error function needed by `normal_cdf()`
 
 **Lines 126–129: `normal_cdf(double x, double mu, double sigma)`**
 - Arguments: `double x` — value; `double mu` — mean; `double sigma` — standard deviation
-- Purpose: Returns NAN if σ ≤ 0. Returns `0.5 × (1 + erf_approx((x−mu)/(sigma×√2)))`.
+- Purpose: Computes the cumulative normal probability P(X≤x) using the error function approximation. Returns NAN if σ is not positive.
 - Objectives: 4.2 — calculates cumulative P(X≤x) for the normal distribution
 
 **Lines 131–138: `erf_inv_approx(double x)`**
 - Arguments: `double x` — value in (−1, 1)
-- Purpose: Returns NAN if x ∉ (−1, 1). Uses constant a = 0.147. Computes `b = 2/(π×a) + ln(1−x²)/2`, `c = ln(1−x²)/a`. Returns `sign × √(−b + √(b²−c))`.
+- Purpose: Approximates the inverse error function using a closed-form algebraic method. Used internally by `normal_inv()`. Returns NAN for inputs outside (−1, 1).
 - Objectives: 4.2 — provides the inverse error function needed by `normal_inv()`
 
 **Lines 140–144: `normal_inv(double p, double mu, double sigma)`**
 - Arguments: `double p` — cumulative probability in (0,1); `double mu` — mean; `double sigma` — standard deviation
-- Purpose: Returns NAN if p ∉ (0,1) or σ ≤ 0. Returns `mu + sigma × √2 × erf_inv_approx(2p − 1)`.
+- Purpose: Computes the inverse normal (quantile), i.e. the value x such that P(X≤x) = p. Returns NAN if the inputs are out of range.
 - Objectives: 4.2 — calculates the inverse normal (quantile) function
 
 **Lines 432–435: `poisson_pmf(double lambda, int k)`**
 - Arguments: `double lambda` — mean rate λ; `int k` — number of events
-- Purpose: Returns NAN if λ ≤ 0 or k < 0. Returns `e^(−λ) × λ^k / k!`.
+- Purpose: Computes P(X=k) for the Poisson distribution using the formula e^(−λ) × λ^k / k!. Returns NAN for invalid inputs.
 - Objectives: 4.3 — calculates P(X=k) for the Poisson distribution
 
 **Lines 437–443: `poisson_cdf(double lambda, int k)`**
 - Arguments: `double lambda` — mean rate λ; `int k` — maximum events
-- Purpose: Returns NAN if λ ≤ 0. Returns 0 if k < 0. Sums `poisson_pmf(lambda, i)` for i = 0 to k.
+- Purpose: Computes cumulative P(X≤k) for the Poisson distribution by summing the PMF from 0 to k. Returns NAN or 0 for invalid inputs.
 - Objectives: 4.3 — calculates cumulative P(X≤k) for the Poisson distribution
 
 ### UI Functions
 
-**Lines 158–171: `cleanup_stats_ui()`**
-- Arguments: None
-- Purpose: If `stats_group` non-null, calls `ui_submenu_cleanup(stats_group)`. Nulls `stats_group`, `dist_label`, `result_label`, `hint_lbl`, all `param_labels[]` and `param_textareas[]`.
-- Objectives: General — clean teardown of stats screens
-
-**Lines 174–190: `setup_stats_screen(const char *hint_text)`**
-- Arguments: `const char *hint_text` — hint bar string
-- Purpose: Calls `cleanup_stats_ui()`. Cleans screen. Creates `stats_group`. Creates hint bar. Sets indev group. Returns the screen pointer.
-- Objectives: 2.2 — standard screen setup with hint bar for distribution screens
-
 **Lines 204–238: `stats_textarea_key_cb(lv_event_t *e)`**
 - Arguments: `lv_event_t *e` — LVGL key event on a distribution parameter textarea
-- Purpose: UP/DOWN: `lv_group_focus_prev/next()`. ENTER: calls `active_stats_ctx->calc_fn(fields, count, result_label)`. ESC: `show_stats_menu()`. `'K'`: settings. `'M'`: main menu.
+- Purpose: Handles keypad input on all distribution parameter screens. Up and down move between the 3 input fields. Enter triggers the distribution calculation via the function pointer stored in the active context. ESC returns to the stats menu.
 - Objectives: 2.3 — keypad-driven input and calculation trigger for all distribution screens
 
 **Lines 254–265: `show_stats_menu()`**
 - Arguments: None
-- Purpose: Sets `current_mode = STATS_MENU`. Calls `cleanup_stats_ui()`. Creates `SubMenuStyle` with `COL_ACCENT_STATS`. Calls `ui_create_submenu(stats_menu_items, 7, &style, main_menu_create)`.
+- Purpose: Displays the statistics submenu with all 7 distribution options using the shared submenu component with the stats green accent colour.
 - Objectives: 4.1, 4.2, 4.3 — presents all 7 distribution options
 
-**Lines 270–314: `create_dist_screen(const char *title, const char **param_labels_text, void (*calc_fn)(...), lv_obj_t **fields_out, StatsCtx *ctx)`**
-- Arguments: `const char *title` — distribution name; `const char **param_labels_text` — 3-element array of parameter labels; `calc_fn` — calculation function pointer; `lv_obj_t **fields_out` — receives the 3 textarea pointers; `StatsCtx *ctx` — receives the configured context
-- Purpose: Calls `setup_stats_screen()`. Creates title label in `COL_ACCENT_STATS`. For each i=0..2: creates a parameter label (secondary font) and a 170px textarea with `stats_textarea_key_cb`. Creates result label (primary font, green). Populates `ctx` with fields, field_count=3, result_label, and calc_fn. Sets `active_stats_ctx = ctx`. Focuses first textarea.
+**Lines 270–314: `create_dist_screen(...)`**
+- Arguments: title string, 3 parameter label strings, calculation function pointer, field output array, context struct pointer
+- Purpose: Generic screen builder used by all 7 distributions. Creates a title label, 3 parameter input fields with their labels, and a result label. Stores the field pointers and calc function into the context struct so `stats_textarea_key_cb` can call the right calculation on Enter.
 - Objectives: 4.1, 4.2, 4.3 — generic UI builder ensuring consistent 3-parameter layout across all 7 distributions; 2.2 — standard layout displayed clearly on LCD
 
 **Lines 320–337: Binomial PMF screen**
-- `calc_binomial_pmf(lv_obj_t **f, int n, lv_obj_t *res)` — Arguments: field array, count, result label. Reads n, k, p as `atof()`. Calls `binomial_pmf()`. Displays `"= value"` or error/infinity.
-- `show_binomial_pmf()` — Arguments: None. Calls `create_dist_screen("Binomial P(X=k)", ...)`.
+- `calc_binomial_pmf` — reads n, k, p from the input fields and calls `binomial_pmf()`. Displays the result or an error.
+- `show_binomial_pmf` — calls `create_dist_screen` to build the Binomial P(X=k) input screen.
 - Objectives: 4.1 — displays P(X=k) for the binomial distribution
 
 **Lines 340–360: Binomial CDF screen**
-- `calc_binomial_cdf(lv_obj_t **f, int n, lv_obj_t *res)` — Arguments: field array, count, result label. Calls `binomial_cdf()`. Displays result.
-- `show_binomial_cdf()` — Arguments: None. Calls `create_dist_screen("Binomial CDF P(X<=k)", ...)`.
+- `calc_binomial_cdf` — reads n, k, p and calls `binomial_cdf()`. Displays the cumulative result.
+- `show_binomial_cdf` — calls `create_dist_screen` to build the Binomial CDF screen.
 - Objectives: 4.1 — displays cumulative P(X≤k) for the binomial distribution
 
 **Lines 363–383: Normal PDF screen**
-- `calc_normal_pdf(lv_obj_t **f, int n, lv_obj_t *res)` — Arguments: field array, count, result label. Reads x, μ, σ. Calls `normal_pdf()`. Displays result.
-- `show_normal_pdf()` — Arguments: None. Calls `create_dist_screen("Normal PDF", ...)`.
+- `calc_normal_pdf` — reads x, μ, σ and calls `normal_pdf()`. Displays the probability density.
+- `show_normal_pdf` — calls `create_dist_screen` to build the Normal PDF screen.
 - Objectives: 4.2 — displays normal probability density
 
 **Lines 386–406: Normal CDF screen**
-- `calc_normal_cdf(lv_obj_t **f, int n, lv_obj_t *res)` — Arguments: field array, count, result label. Reads x, μ, σ. Calls `normal_cdf()`. Displays result.
-- `show_normal_cdf()` — Arguments: None. Calls `create_dist_screen("Normal CDF", ...)`.
+- `calc_normal_cdf` — reads x, μ, σ and calls `normal_cdf()`. Displays P(X≤x).
+- `show_normal_cdf` — calls `create_dist_screen` to build the Normal CDF screen.
 - Objectives: 4.2 — displays cumulative normal probability P(X≤x)
 
 **Lines 409–429: Inverse Normal screen**
-- `calc_inverse_normal(lv_obj_t **f, int n, lv_obj_t *res)` — Arguments: field array, count, result label. Reads p, μ, σ. Calls `normal_inv()`. Displays result.
-- `show_inverse_normal()` — Arguments: None. Calls `create_dist_screen("Inverse Normal", ...)`.
+- `calc_inverse_normal` — reads p, μ, σ and calls `normal_inv()`. Displays the quantile value.
+- `show_inverse_normal` — calls `create_dist_screen` to build the Inverse Normal screen.
 - Objectives: 4.2 — implements inverse normal (quantile) function
 
 **Lines 432–463: Poisson PMF screen**
-- `poisson_pmf(double lambda, int k)` (line 432) — Arguments: λ, k. Returns P(X=k).
-- `calc_poisson_pmf(lv_obj_t **f, int n, lv_obj_t *res)` — Arguments: field array, count, result label. Reads λ and k. Calls `poisson_pmf()`. Displays result.
-- `show_poisson_pmf()` — Arguments: None. Calls `create_dist_screen("Poisson P(X=k)", ...)`.
+- `calc_poisson_pmf` — reads λ and k and calls `poisson_pmf()`. Displays P(X=k).
+- `show_poisson_pmf` — calls `create_dist_screen` to build the Poisson P(X=k) screen.
 - Objectives: 4.3 — displays P(X=k) for Poisson distribution
 
 **Lines 465–483: Poisson CDF screen**
-- `poisson_cdf(double lambda, int k)` (line 437) — Arguments: λ, k. Returns Σ P(X=i) for i=0..k.
-- `calc_poisson_cdf(lv_obj_t **f, int n, lv_obj_t *res)` — Arguments: field array, count, result label. Reads λ and k. Calls `poisson_cdf()`. Displays result.
-- `show_poisson_cdf()` — Arguments: None. Calls `create_dist_screen("Poisson CDF P(X<=k)", ...)`.
+- `calc_poisson_cdf` — reads λ and k and calls `poisson_cdf()`. Displays cumulative P(X≤k).
+- `show_poisson_cdf` — calls `create_dist_screen` to build the Poisson CDF screen.
 - Objectives: 4.3 — displays cumulative P(X≤k) for Poisson distribution
 
-**Lines 485–487: `stats_app_start()`**
+<!-- **Lines 485–487: `stats_app_start()`**
 - Arguments: None
 - Purpose: Calls `show_stats_menu()`. Entry point called by `main_menu.c`.
-- Objectives: 4.1, 4.2, 4.3 — launches the full statistics application
+- Objectives: 4.1, 4.2, 4.3 — launches the full statistics application -->
 
 ---
 
@@ -993,25 +894,25 @@ implicit_mult := (next token is '(' | x | X | A-F | pi | e | known_function)
 
 ### Functions
 
-**Lines 19–28: `update_highlight(SubMenuCtx *ctx)`**
+<!-- **Lines 19–28: `update_highlight(SubMenuCtx *ctx)`**
 - Arguments: `SubMenuCtx *ctx` — pointer to the current submenu context
 - Purpose: Iterates all `ctx->item_count` labels. Sets background of `ctx->labels[ctx->selection]` to `ctx->focus_bg` with full opacity. Sets all other labels to transparent background.
-- Objectives: 2.2 — provides clear visual highlight of the currently selected menu item on the LCD
+- Objectives: 2.2 — provides clear visual highlight of the currently selected menu item on the LCD -->
 
 **Lines 30–61: `submenu_key_cb(lv_event_t *e)`**
 - Arguments: `lv_event_t *e` — LVGL key event on the hidden key receiver
-- Purpose: Reads `active_submenu`. UP: `selection--` (min 0), calls `update_highlight()`. DOWN: `selection++` (max item_count−1), calls `update_highlight()`. ENTER: calls `ctx->items[ctx->selection].callback()`. `'M'`: calls `ctx->on_menu()` (usually `main_menu_create`).
+- Purpose: Handles up/down navigation between menu items and highlights the selected one. Enter calls the callback for the selected item. The menu key returns to the main menu.
 - Objectives: 2.3 — provides Up/Down/Enter keypad navigation for all submenus
 
-**Lines 63–118: `ui_create_submenu(const SubMenuItem *items, int item_count, const SubMenuStyle *style, void (*on_menu)(void))`**
-- Arguments: `const SubMenuItem *items` — array of menu items (text + callback); `int item_count` — number of items; `const SubMenuStyle *style` — accent colour, focus bg colour, hint text; `void (*on_menu)(void)` — callback for `'M'` key (return to main menu)
-- Purpose: If a previous submenu is active, calls `ui_submenu_cleanup()` on it. Cleans screen. Allocates `SubMenuCtx` and labels array via `lv_malloc()`. Creates LVGL group. Creates hidden `key_recv` with `submenu_key_cb`. For each item (y starts at `CONTENT_TOP`, increments 26px): creates a label with primary font, `COL_TEXT`, 6px left pad, 4px top pad, 3px radius. Creates hint bar. Sets indev group. Focuses `key_recv`. Calls `update_highlight()`. Sets `active_submenu`. Returns `ctx->group`.
+**Lines 63–118: `ui_create_submenu(...)`**
+- Arguments: array of menu items with labels and callbacks, item count, style struct with accent colour and hint text, and an on-menu callback
+- Purpose: Generic submenu builder used by Settings, Solver, Stats, and Numerical Methods. Creates a vertically stacked list of labelled items, sets up keyboard navigation, and highlights the first item. Cleans up any previously active submenu before building the new one.
 - Objectives: 2.2 — consistent list display across all 4 apps; 2.3 — shared keyboard navigation infrastructure
 
-**Lines 120–129: `ui_submenu_cleanup(lv_group_t *group)`**
+<!-- **Lines 120–129: `ui_submenu_cleanup(lv_group_t *group)`**
 - Arguments: `lv_group_t *group` — the group to clean up
 - Purpose: Checks `active_submenu != NULL && active_submenu->group == group`. Frees labels array via `lv_free()`. Calls `lv_group_del(group)`. Frees `active_submenu` context. Sets `active_submenu = NULL`.
-- Objectives: General — memory-safe teardown preventing LVGL leaks when switching screens
+- Objectives: General — memory-safe teardown preventing LVGL leaks when switching screens -->
 
 ---
 

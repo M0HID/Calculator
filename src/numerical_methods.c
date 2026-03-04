@@ -153,6 +153,9 @@ static void cf_key_cb(lv_event_t *e) {
         main_menu_create();
         lv_event_stop_bubbling(e);
         return;
+    case '$':
+        lv_event_stop_bubbling(e);
+        return;
     default:
         break;
     }
@@ -277,6 +280,7 @@ static void ni_textarea_key_cb(lv_event_t *e) {
     case 'P': { lv_obj_t *f = lv_group_get_focused(nm_group); if (f && lv_obj_check_type(f, &lv_textarea_class)) { lv_textarea_delete_char(f); lv_textarea_add_text(f, "pi"); } lv_event_stop_bubbling(e); return; }
     case 'X': { lv_obj_t *f = lv_group_get_focused(nm_group); if (f && lv_obj_check_type(f, &lv_textarea_class)) { lv_textarea_delete_char(f); lv_textarea_add_text(f, "^"); } lv_event_stop_bubbling(e); return; }
     case 'V': { lv_obj_t *f = lv_group_get_focused(nm_group); if (f && lv_obj_check_type(f, &lv_textarea_class)) { lv_textarea_delete_char(f); lv_textarea_add_text(f, "x"); } lv_event_stop_bubbling(e); return; }
+    case '$': { lv_obj_t *f = lv_group_get_focused(nm_group); if (f && lv_obj_check_type(f, &lv_textarea_class)) { lv_textarea_delete_char(f); lv_textarea_add_text(f, "e"); } lv_event_stop_bubbling(e); return; }
     default:
         break;
     }
@@ -427,6 +431,7 @@ static void nr_key_cb(lv_event_t *e) {
     case 'X': { lv_obj_t *f = lv_group_get_focused(nm_group); if (f && lv_obj_check_type(f, &lv_textarea_class)) { lv_textarea_delete_char(f); lv_textarea_add_text(f, "^"); } lv_event_stop_bubbling(e); return; }
     case 'V': { lv_obj_t *f = lv_group_get_focused(nm_group); if (f && lv_obj_check_type(f, &lv_textarea_class)) { lv_textarea_delete_char(f); lv_textarea_add_text(f, "x"); } lv_event_stop_bubbling(e); return; }
     case 'W': { lv_obj_t *f = lv_group_get_focused(nm_group); if (f && lv_obj_check_type(f, &lv_textarea_class)) { lv_textarea_delete_char(f); lv_textarea_add_text(f, "^2"); } lv_event_stop_bubbling(e); return; }
+    case '$': { lv_obj_t *f = lv_group_get_focused(nm_group); if (f && lv_obj_check_type(f, &lv_textarea_class)) { lv_textarea_delete_char(f); lv_textarea_add_text(f, "e"); } lv_event_stop_bubbling(e); return; }
     default:
         break;
     }

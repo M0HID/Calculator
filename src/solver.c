@@ -162,7 +162,7 @@ static int solver_handle_custom_key(uint32_t key) {
   case 'P':
     solver_insert_text_at_cursor("pi");
     return 1;
-  case 'E':
+  case '$':
     solver_insert_text_at_cursor("e");
     return 1;
   case 'V':
@@ -211,7 +211,7 @@ static void solver_textarea_key_cb(lv_event_t *e) {
     lv_event_stop_bubbling(e);
     return;
   case 's': case 'c': case 't': case 'r': case 'l': case 'L':
-  case 'P': case 'E': case 'V': case 'W': case 'X':
+  case 'P': case '$': case 'V': case 'W': case 'X':
     lv_obj_t *focused = lv_group_get_focused(solver_group);
     if (focused && lv_obj_check_type(focused, &lv_textarea_class)) {
       lv_textarea_delete_char(focused);
